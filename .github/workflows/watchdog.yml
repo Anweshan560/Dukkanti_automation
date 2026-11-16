@@ -1,0 +1,38 @@
+name: Daily regression watchdog
+
+# Opens an issue when the daily regression did not start at all (neither cron-job.org nor the backup).
+# Runs 90 minutes after the daily time (06:30 Nepal): 02:15 UTC = 08:00 Nepal.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 2 * * *' # 08:00 Nepal time
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Did the daily regression start in the last 20 hours?
+        run: |
+          since=$(date -u -d '20 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          runs=$(gh run list --workflow daily.yml --created ">=$since" --json databaseId --jq length)
+          echo "Daily regression runs since $since: $runs" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$runs" -gt 0 ]; then exit 0; fi
+          gh label create watchdog --color FBCA04 --description "Scheduled run did not start" 2>/dev/null || true
+          open_issue=$(gh issue list --label watchdog --state open --json number --jq '.[0].number // empty')
+          message="The daily regression has not started since $since. Check the cron-job.org job (and its GitHub token), and the backup schedule in daily.yml."
+          if [ -n "$open_issue" ]; then
+            gh issue comment "$open_issue" --body "$message"
+          else
+            gh issue create --title "Daily regression did not start" --label watchdog --body "$message"
+          fi

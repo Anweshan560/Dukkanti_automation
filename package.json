@@ -1,0 +1,33 @@
+{
+  "name": "dukkanti-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright UI and API test suite for the Dukkanti storefront",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "playwright test --project=ui --project=api",
+    "test:smoke": "playwright test --project=smoke",
+    "test:ui": "playwright test --project=ui",
+    "test:api": "playwright test --project=api",
+    "test:cleanup": "playwright test --project=cleanup",
+    "test:exclusive": "playwright test --project=exclusive --workers=1",
+    "test:cross-browser": "playwright test --project=smoke-firefox --project=smoke-webkit --project=smoke-mobile-chrome --project=smoke-mobile-safari",
+    "test:all": "tsx scripts/run-all.ts",
+    "known-bugs": "tsx scripts/known-bugs.ts",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "dotenv": "^18.0.10",
+    "prettier": "^3.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
