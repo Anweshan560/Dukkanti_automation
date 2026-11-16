@@ -1,0 +1,10 @@
+{
+  "products-pagination-500": {
+    "issue": "",
+    "description": "GET /products with page=0, page=-1 or limit=-1 returns 500 instead of a 400 validation error"
+  },
+  "products-invalid-id-500": {
+    "issue": "",
+    "description": "GET /products/{id} with a non-UUID id returns 500 instead of 400/404"
+  }
+}

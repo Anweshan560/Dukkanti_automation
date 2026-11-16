@@ -1,0 +1,50 @@
+name: PR checks
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+  CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+  CUSTOMER_PHONE: ${{ secrets.CUSTOMER_PHONE }}
+  CUSTOMER_OTP: ${{ secrets.CUSTOMER_OTP }}
+  CUSTOMER_DIAL_CODE: ${{ vars.CUSTOMER_DIAL_CODE }}
+  CUSTOMER2_PHONE: ${{ secrets.CUSTOMER2_PHONE }}
+  CUSTOMER2_OTP: ${{ secrets.CUSTOMER2_OTP }}
+
+jobs:
+  typecheck-and-smoke:
+    runs-on: ubuntu-latest
+    # Smoke takes a few minutes. 20 leaves room for a slow install and for retries.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Formatting
+        run: npm run format:check
+      - name: Known-bug list is consistent
+        run: npm run known-bugs -- --check
+      - name: Smoke tests
+        run: npm run test:smoke
+      - name: Say so when the run was cancelled
+        if: cancelled()
+        run: echo "## Run cancelled before it finished" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-pr
+          path: |
+            playwright-report/
+            test-results/failures.md
+          retention-days: 7
+          if-no-files-found: ignore

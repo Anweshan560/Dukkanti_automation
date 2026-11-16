@@ -1,0 +1,67 @@
+name: Weekly cross-browser and exclusive
+
+# Once a week: the smoke set on Firefox, WebKit and two phone-sized screens, then the "exclusive" tests
+# (the ones that change store-wide settings), alone and one at a time.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * 6' # Saturday, UTC
+
+concurrency:
+  group: weekly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+  CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+  CUSTOMER_PHONE: ${{ secrets.CUSTOMER_PHONE }}
+  CUSTOMER_OTP: ${{ secrets.CUSTOMER_OTP }}
+  CUSTOMER_DIAL_CODE: ${{ vars.CUSTOMER_DIAL_CODE }}
+  CUSTOMER2_PHONE: ${{ secrets.CUSTOMER2_PHONE }}
+  CUSTOMER2_OTP: ${{ secrets.CUSTOMER2_OTP }}
+
+jobs:
+  cross-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          browsers: chromium firefox webkit
+      - name: Smoke tests on Firefox, WebKit, mobile Chrome and mobile Safari
+        run: npm run test:cross-browser
+      - name: Say so when the run was cancelled
+        if: cancelled()
+        run: echo "## Run cancelled before it finished" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-cross-browser
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  exclusive:
+    runs-on: ubuntu-latest
+    needs: cross-browser
+    if: always()
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Exclusive tests, one at a time
+        run: npm run test:exclusive -- --pass-with-no-tests
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-exclusive
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
