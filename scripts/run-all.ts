@@ -10,7 +10,7 @@ const steps: { name: string; command: string; mustPass: boolean }[] = [
   { name: 'Typecheck', command: 'npx tsc --noEmit', mustPass: true },
   // A failed cleanup should not stop the regression from running.
   { name: 'Clean up old test data', command: 'npx playwright test --project=cleanup', mustPass: false },
-  { name: 'UI and API tests', command: 'npx playwright test --project=ui --project=api', mustPass: true },
+  { name: 'UI and API tests', command: 'npx playwright test --project=ui --project=api --project=customer', mustPass: true },
 ];
 
 let exitCode = 0;

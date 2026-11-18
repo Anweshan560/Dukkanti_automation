@@ -406,10 +406,13 @@ test.describe('Category, country and brand pages', { tag: '@catalog' }, () => {
 
       await test.step(`Type "${wanted}" in the search box`, async () => {
         const before = await directory.entries.count();
+        // Typing before the page has hydrated is lost (seen under a full parallel run), so clear and type
+        // again until the list reacts.
         await expect(async () => {
+          await directory.searchBox.clear();
           await directory.searchBox.fill(wanted);
-          expect(await directory.entries.count()).toBeLessThan(before);
-        }, 'Typing in the search box did not narrow the list').toPass({ timeout: 15_000 });
+          await expect.poll(() => directory.entries.count(), { timeout: 3_000 }).toBeLessThan(before);
+        }, 'Typing in the search box did not narrow the list').toPass({ timeout: 30_000 });
       });
 
       await test.step('Only matching entries remain, and clicking one opens its products', async () => {
@@ -420,6 +423,30 @@ test.describe('Category, country and brand pages', { tag: '@catalog' }, () => {
       });
     });
   }
+
+  test('should list every local business on /local-businesses and filter them with its search box', async ({ page, api }) => {
+    const local = await json<Brand[]>(api.brands.list({ localOnly: true }));
+    test.skip(local.length < 2, 'Needs two local businesses to see the search narrow the list');
+    const main = page.getByRole('main');
+    const entries = main.locator('a[href^="/products/brands/"]');
+    await page.goto('/local-businesses');
+    await expect(main.getByRole('heading', { name: 'Local businesses', level: 1 })).toBeVisible();
+    await expect(entries).toHaveCount(local.length);
+    for (const business of local) await expect(entries.filter({ hasText: business.name }).first(), business.name).toBeVisible();
+
+    // The box is labelled "Search brands..." here too.
+    const search = main.getByRole('searchbox');
+    const wanted = local[0];
+    await expect(async () => {
+      await search.clear();
+      await search.fill(wanted.name);
+      await expect.poll(() => entries.count(), { timeout: 3_000 }).toBeLessThan(local.length);
+    }, 'Typing in the search box did not narrow the list').toPass({ timeout: 30_000 });
+    for (const name of await entries.allInnerTexts()) expect(name.toLowerCase()).toContain(wanted.name.toLowerCase());
+    await entries.filter({ hasText: wanted.name }).first().click();
+    await expect(page).toHaveURL(/\/products\/brands\//);
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(wanted.name);
+  });
 });
 
 async function namesOf(api: Api, kind: DirectoryKind): Promise<string[]> {

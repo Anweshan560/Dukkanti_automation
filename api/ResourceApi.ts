@@ -59,6 +59,20 @@ export abstract class ResourceApi {
   protected delete(path = ''): Promise<APIResponse> {
     return this.request.delete(this.url(path), { headers: this.headers() });
   }
+
+  /**
+   * Sends any request under this resource with any body, for negative tests that need values the typed
+   * methods do not allow (wrong types, missing fields, extra fields).
+   */
+  raw(method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', path = '', data?: unknown): Promise<APIResponse> {
+    return this.request.fetch(this.url(path), { method, headers: this.headers(), data });
+  }
+}
+
+/** The API's error message as one string, whether it sent a string or a list of validation messages. */
+export async function errorMessage(response: APIResponse): Promise<string> {
+  const body = (await response.json().catch(() => ({}))) as Partial<ApiError>;
+  return Array.isArray(body.message) ? body.message.join(' | ') : String(body.message ?? '');
 }
 
 /** Parses a successful response, or throws an error that names the call and shows the API's message. */

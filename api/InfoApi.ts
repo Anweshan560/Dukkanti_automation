@@ -15,7 +15,8 @@ export interface StoreInfo {
   localBrandsEnabled: boolean;
   sameDayDeliveryEnabled: boolean;
   sameDayCutoff: string;
-  deliveryEstimate: { date: string; orderBy: string };
+  /** The next delivery. `orderBy` is today's same-day cut-off, or null once it has passed. */
+  deliveryEstimate: { date: string; orderBy: string | null };
   stripePublishableKey: string;
 }
 

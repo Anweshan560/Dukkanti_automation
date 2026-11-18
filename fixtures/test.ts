@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import { test as base, expect, request as playwrightRequest } from '@playwright/test';
-import { buildApi, type Api } from '../api';
+import { buildApi, json, type Api, type StoreInfo } from '../api';
 import { env, requireCustomer } from '../config/env';
 import { SignInDialog } from '../pages/auth/SignInDialog';
+import { CartPage } from '../pages/cart/CartPage';
+import { CheckoutPage, OrderConfirmationPage } from '../pages/checkout/CheckoutPage';
 import { ProductListPage } from '../pages/catalog/ProductListPage';
 import { HomePage } from '../pages/home/HomePage';
 
@@ -19,9 +21,14 @@ interface TestFixtures {
   api: Api;
   /** API clients calling as the logged-in customer. */
   customerApi: Api;
+  /** Store settings from GET /info: minimum order, delivery fee, free-delivery threshold, VAT, COD fee. */
+  storeInfo: StoreInfo;
   homePage: HomePage;
   productListPage: ProductListPage;
   signInDialog: SignInDialog;
+  cartPage: CartPage;
+  checkoutPage: CheckoutPage;
+  orderConfirmation: OrderConfirmationPage;
 }
 
 interface WorkerFixtures {
@@ -80,9 +87,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   api: async ({ request }, use) => use(buildApi(request)),
   customerApi: async ({ request, customerToken }, use) => use(buildApi(request, customerToken)),
 
+  storeInfo: async ({ api }, use) => use(await json<StoreInfo>(api.info.getInfo())),
+
   homePage: async ({ page }, use) => use(new HomePage(page)),
   productListPage: async ({ page }, use) => use(new ProductListPage(page)),
   signInDialog: async ({ page }, use) => use(new SignInDialog(page)),
+  cartPage: async ({ page }, use) => use(new CartPage(page)),
+  checkoutPage: async ({ page }, use) => use(new CheckoutPage(page)),
+  orderConfirmation: async ({ page }, use) => use(new OrderConfirmationPage(page)),
 });
 
 export { expect };
