@@ -40,5 +40,22 @@ export abstract class BasePage {
       this.ready,
       `${this.constructor.name} did not load: its main element is missing at ${this.page.url()}`,
     ).toBeVisible({ timeout: FAIL_FAST_TIMEOUT });
+    await this.waitForSignedInState();
+  }
+
+  /**
+   * The page is server-rendered as a guest and only learns about the saved session about a second later
+   * (after GET /users/me). A heart or "Add" clicked before that opens the sign-in dialog even for a signed-in
+   * customer, so for a saved session wait until the header shows the account button.
+   */
+  private async waitForSignedInState(): Promise<void> {
+    const hasSession = await this.page
+      .evaluate(() => Boolean(localStorage.getItem('dukkanti_auth')))
+      .catch(() => false);
+    if (!hasSession || (await this.header.banner.count()) === 0) return;
+    await expect(
+      this.header.accountButton,
+      'The saved customer session was not picked up: the header never showed the account button',
+    ).toBeAttached({ timeout: FAIL_FAST_TIMEOUT });
   }
 }

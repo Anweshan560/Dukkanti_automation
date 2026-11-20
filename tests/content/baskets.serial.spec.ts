@@ -12,6 +12,7 @@ import type { Locator, Page } from '@playwright/test';
 import { json, type Api, type Basket, type Product } from '../../api';
 import { env } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
+import { Header } from '../../pages/Header';
 import { waitForApi } from '../../utils/network';
 
 test.use({ storageState: env.storageState.customer });
@@ -23,6 +24,12 @@ test.beforeEach(async ({ customerApi }) => {
 test.afterEach(async ({ customerApi }) => {
   await customerApi.cart.clear();
 });
+
+/** Opens /baskets and waits until the page knows the customer is signed in; an earlier Buy asks to sign in. */
+async function openBaskets(page: Page): Promise<void> {
+  await page.goto('/baskets');
+  await expect(new Header(page).accountButton, 'The saved customer session was not picked up').toBeAttached();
+}
 
 const shownBaskets = async (api: Api): Promise<Basket[]> =>
   (await json<Basket[]>(api.baskets.list())).filter((b) => b.isActive && !b.isPrivate);
@@ -76,13 +83,13 @@ async function buy(page: Page, basket: Basket): Promise<{ productId: string; qua
 test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () => {
   test('"Buy" is offered on exactly the baskets set up for it', async ({ api, page }) => {
     const baskets = await shownBaskets(api);
-    await page.goto('/baskets');
+    await openBaskets(page);
     await expect(page.getByRole('main').getByRole('button', { name: 'Buy', exact: true })).toHaveCount(baskets.filter((b) => b.showAddAll).length);
   });
 
   test('"Buy" adds every product of the basket once and says how many', { tag: '@smoke' }, async ({ api, customerApi, page }) => {
     const { basket, inStock } = await buyableBasket(api, false);
-    await page.goto('/baskets');
+    await openBaskets(page);
     const sent = await buy(page, basket);
 
     expect(sent.map((i) => i.productId).sort(), 'Products sent to the cart').toEqual(inStock.map((p) => p.id).sort());
@@ -96,7 +103,7 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
 
   test('"Go to cart" in the dialog opens the cart with the basket in it', async ({ api, page, cartPage }) => {
     const { basket, inStock } = await buyableBasket(api);
-    await page.goto('/baskets');
+    await openBaskets(page);
     await buy(page, basket);
     await addedDialog(page).getByRole('link', { name: 'Go to cart' }).click();
     await expect(page).toHaveURL(/\/cart$/);
@@ -106,7 +113,7 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
 
   test('products that are out of stock or deleted are left out', async ({ api, customerApi, page }) => {
     const { basket, inStock, notBuyable } = await buyableBasket(api, true);
-    await page.goto('/baskets');
+    await openBaskets(page);
     const sent = await buy(page, basket);
     expect(sent.map((i) => i.productId).sort(), `Left out: ${notBuyable.join(', ')}`).toEqual(inStock.map((p) => p.id).sort());
     await expect(addedDialog(page)).toHaveAccessibleName(`${inStock.length} items added to your cart`);
@@ -115,7 +122,7 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
 
   test('buying the same basket twice doubles the quantities instead of repeating the lines', async ({ api, customerApi, page }) => {
     const { basket, inStock } = await buyableBasket(api);
-    await page.goto('/baskets');
+    await openBaskets(page);
     await buy(page, basket);
     await expect(addedDialog(page)).toBeVisible();
     await page.keyboard.press('Escape');
@@ -135,7 +142,7 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
     test.skip(!extra, 'No in-stock product outside the basket');
     await customerApi.cart.seed([{ productId: extra!.id, quantity: 2 }]);
 
-    await page.goto('/baskets');
+    await openBaskets(page);
     await buy(page, basket);
     await expect(addedDialog(page)).toBeVisible();
     const cart = await customerApi.cart.current();
@@ -145,7 +152,7 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
 
   test('"Customize" opens the basket page, where a single product can be added', async ({ api, customerApi, page }) => {
     const { basket, inStock } = await buyableBasket(api);
-    await page.goto('/baskets');
+    await openBaskets(page);
     await page.getByRole('main').locator(`a[href="/baskets/${basket.slug}"]`).filter({ hasText: /^Customize$/ }).click();
     await expect(page).toHaveURL(new RegExp(`/baskets/${basket.slug}$`));
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(basket.name);

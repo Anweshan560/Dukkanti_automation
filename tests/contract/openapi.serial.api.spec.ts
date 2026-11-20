@@ -108,7 +108,13 @@ test.describe('Responses match the spec: public endpoints', { tag: ['@api', '@co
       if (['brands', 'promotions', 'products'].includes(name)) knownBug('openapi-response-schemas-wrong');
       const response = await call(api);
       expect(response.status()).toBe(200);
-      expect(contract.check('get', path, 200, await response.json()), `GET ${path} differs from the spec`).toEqual([]);
+      const body = await response.json();
+      // The spec types campaignOffer.minimumSubtotal as an object; the API sends a number. Only seen while a
+      // campaign with a minimum subtotal is running, so mark it only then.
+      if (name === 'info' && typeof body?.campaignOffer?.minimumSubtotal === 'number') {
+        knownBug('openapi-response-schemas-wrong');
+      }
+      expect(contract.check('get', path, 200, body), `GET ${path} differs from the spec`).toEqual([]);
     });
   }
 

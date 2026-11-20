@@ -173,7 +173,7 @@
   },
   "openapi-response-schemas-wrong": {
     "issue": "",
-    "description": "The OpenAPI spec does not match real responses: nullable numbers/strings typed as \"object\" (promotion buyQuantity/getQuantity, address googleMapsUrl, order previous*Amount, deliveryDate); cart appliedCoupons is an array but typed as one object; brand nameAr can be null; GET /orders data typed as string[]; GET /orders/{id} marks 8 fields required that are never sent (paymentIntentId, onMyWayAt, arrivedAt, isFirstOrder, specialItems, ...) and item prices come back as strings"
+    "description": "The OpenAPI spec does not match real responses: nullable numbers/strings typed as \"object\" (promotion buyQuantity/getQuantity, info campaignOffer.minimumSubtotal, address googleMapsUrl, order previous*Amount, deliveryDate); cart appliedCoupons is an array but typed as one object; brand nameAr can be null; GET /orders data typed as string[]; GET /orders/{id} marks 8 fields required that are never sent (paymentIntentId, onMyWayAt, arrivedAt, isFirstOrder, specialItems, ...) and item prices come back as strings"
   },
   "openapi-error-responses-undocumented": {
     "issue": "",

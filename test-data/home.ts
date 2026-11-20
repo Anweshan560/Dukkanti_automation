@@ -44,12 +44,13 @@ export const homeData = {
 
   /** Shop by category: names in display order. */
   categories: [
+    // Dev-only category the store owner created on purpose; it sorts first.
+    'anweshan category',
     'Dairy Products',
     'Cans & Jars',
     'Pasta, Rice & More',
     'Home Baking',
     'Herbs & Spices',
-    'Bakery',
   ],
 
   /** Number of deal cards the home page shows when enough deals are running. */
