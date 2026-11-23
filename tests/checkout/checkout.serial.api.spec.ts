@@ -1,9 +1,10 @@
 /**
  * Checkout API: refused checkouts first (none may place an order), then the order a cash-on-delivery
- * checkout creates, a card checkout that is started but not paid, and a double submit.
+ * checkout creates, a card checkout that is started but not paid (priced by the server, not payable from
+ * the pay page), and a double submit.
  *
  * BUDGET: POST /cart/checkout allows ~10 calls per customer per ~10 minutes, refused calls included
- * (see utils/rateLimit.ts). This file makes 8 calls and the checkout UI file 2. Add a checkout call only
+ * (see utils/rateLimit.ts). This file makes 9 calls and the checkout UI file 2. Add a checkout call only
  * if you take one away elsewhere. Every call goes through `retryOn429`, so a quick re-run waits instead
  * of failing.
  *
@@ -25,7 +26,8 @@ import { knownBug } from '../../utils/knownBug';
 import { expect, test } from '../../fixtures/test';
 import { sameMoney } from '../../utils/dom';
 import { CHECKOUT_TEST_TIMEOUT, retryOn429 } from '../../utils/rateLimit';
-import { expectedTotals, MISSING_ID, purchasableProducts, quantityForExactly, round2 } from '../../utils/shop';
+import { env } from '../../config/env';
+import { expectedTotals, MISSING_ID, outOfStockProduct, purchasableProducts, quantityForExactly, round2 } from '../../utils/shop';
 import { buildAddress } from '../../utils/testData';
 
 test.describe.configure({ mode: 'default', timeout: CHECKOUT_TEST_TIMEOUT });
@@ -101,6 +103,20 @@ test.describe('Checkout API: refused checkouts place no order', { tag: ['@checko
     expect(await orderCount(customerApi)).toBe(before);
   });
 
+  test('a cart holding an out-of-stock product cannot be checked out', { tag: '@stock' }, async ({ api, customerApi, storeInfo }) => {
+    const product = await outOfStockProduct(api);
+    await seedCheckoutableCart(api, customerApi, storeInfo.minOrderAmount);
+    // Only possible while the cart still accepts out-of-stock products (known bug cart-accepts-out-of-stock).
+    await customerApi.cart.add(product.id, 1);
+    const inCart = (await customerApi.cart.current()).items.some((i) => i.product.id === product.id);
+    test.skip(!inCart, 'The cart refuses out-of-stock products now, so such a cart cannot be built');
+
+    const before = await orderCount(customerApi);
+    const response = await checkout(customerApi, { consentForSimilarProducts: 'false', paymentMethod: 'cod', addressId: address.id });
+    expect(response.status(), `Checkout with "${product.name}" (out of stock) answered ${response.status()}`).toBeGreaterThanOrEqual(400);
+    expect(await orderCount(customerApi), 'An order was placed for an out-of-stock product').toBe(before);
+  });
+
   test('a guest cannot check out', { tag: '@security' }, async ({ api }) => {
     // No customer, so this does not use up the customer's checkout budget.
     expect((await api.cart.checkout({ consentForSimilarProducts: 'false', paymentMethod: 'cod' })).status()).toBe(401);
@@ -152,13 +168,42 @@ test.describe('Checkout API: placing orders', { tag: ['@checkout', '@api'] }, ()
     });
   });
 
-  test('a card checkout only starts a payment: no order yet, and the cart is kept', async ({ api, customerApi, storeInfo }) => {
-    await seedCheckoutableCart(api, customerApi, storeInfo.minOrderAmount);
+  test('a card checkout with the test coupon only starts a payment, for the coupon price: no order yet, and the cart is kept', { tag: '@pricing' }, async ({ api, customerApi, storeInfo }) => {
+    // Well above the minimum, so the 10% coupon cannot take the cart below it.
+    const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff + 100);
+    const [other] = (await purchasableProducts(api, 5)).filter((p) => p.id !== product.id);
+    const full = await customerApi.cart.seed([
+      { productId: product.id, quantity },
+      { productId: other.id, quantity: 1 },
+    ]);
+    const applied = await customerApi.coupons.apply(env.testData.couponCode);
+    expect(applied.ok(), `${env.testData.couponCode} was refused: ${await errorMessage(applied)}`).toBe(true);
+    const cart = await customerApi.cart.current();
+    expect(cart.subTotal, 'The coupon did not lower the subtotal').toBeLessThan(full.subTotal);
     const before = await orderCount(customerApi);
-    const response = await checkout(customerApi, { consentForSimilarProducts: 'false', paymentMethod: 'card', addressId: address.id });
+    // Totals sent by the shopper must be ignored: the server prices the order itself.
+    const tampered = { totalAmount: 1, subTotal: 1, deliveryFee: 0, vat: 0, discount: 999 };
+    const response = await checkout(customerApi, { consentForSimilarProducts: 'false', paymentMethod: 'card', addressId: address.id, ...tampered });
     expect(response.status(), await response.text()).toBe(201);
+    const { orderId } = (await response.json()) as { orderId: string };
     expect(await orderCount(customerApi), 'An unpaid card checkout showed up as an order').toBe(before);
     expect((await customerApi.cart.current()).items).toHaveLength(2);
+
+    await test.step('the started payment is the cart total with the coupon, not the totals the shopper sent', async () => {
+      const payment = await json<OrderPayment>(api.payment.order(orderId));
+      const want = expectedTotals(cart.subTotal, storeInfo, 'card').total;
+      expect(sameMoney(want, cart.total), `cart total ${cart.total}, rules say ${want}`).toBe(true);
+      expect(sameMoney(payment.totalAmount, want), `payment total ${payment.totalAmount}, expected ${want}`).toBe(true);
+    });
+    await test.step('it cannot be paid from the pay page, and confirming it without paying keeps it unpaid', async () => {
+      const payment = await json<OrderPayment>(api.payment.order(orderId));
+      expect(payment).toMatchObject({ status: 'awaiting-payment', paymentStatus: 'pending', isPayable: false });
+      const link = await api.payment.link(orderId);
+      expect(link.status()).toBe(409);
+      expect(await errorMessage(link)).toBe('This order can no longer be paid online');
+      expect((await customerApi.payment.confirm(orderId)).status()).toBeLessThan(500);
+      expect((await json<OrderPayment>(api.payment.order(orderId))).paymentStatus).toBe('pending');
+    });
   });
 
   test('two checkouts sent at the same moment place only one order', { tag: '@resilience' }, async ({ api, customerApi, storeInfo }) => {

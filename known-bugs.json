@@ -15,9 +15,9 @@
     "issue": "",
     "description": "NEEDS PRODUCT CONFIRMATION. With an empty cart the threshold bar shows \"Spend AED 200, delivery's on us\" (no amount to the minimum, no progress line); the brief expects \"50 more and you're good to go\""
   },
-  "cart-no-quantity-limit": {
+  "cart-accepts-out-of-stock": {
     "issue": "",
-    "description": "PATCH /cart/update accepts quantity 9999 for one product (200): no stock or sanity limit"
+    "description": "POST /cart/add, POST /cart/add/bulk and PATCH /cart/update put an out-of-stock product (inStock: false) in the cart (201/200) with no notice, although the product page disables its button with \"Out of stock\""
   },
   "home-test-content-visible": {
     "issue": "",
@@ -194,5 +194,13 @@
   "order-tracker-a11y": {
     "issue": "",
     "description": "Order detail status tracker: the progress bar (role=progressbar, \"Placed\" 1 of 4) has no accessible name (axe aria-progressbar-name), and the upcoming steps \"Packed\", \"On the way\", \"Delivered\" are #8eaea2 on #1b4d3e, contrast 4:1, under 4.5:1"
+  },
+  "web-no-content-security-policy": {
+    "issue": "",
+    "description": "The storefront sends no Content-Security-Policy header (seen on /, /account and /pay on 2026-11-20). The customer's token lives in localStorage, so a CSP limiting script sources is the main guard against an injected script stealing it"
+  },
+  "api-reveals-framework": {
+    "issue": "",
+    "description": "Every API response carries \"X-Powered-By: Express\" (and \"Server: railway-hikari\"), telling attackers which framework to target. Turn it off with app.disable('x-powered-by')"
   }
 }

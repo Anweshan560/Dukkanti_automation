@@ -5,7 +5,7 @@
 import { errorMessage, json, type Page, type Product } from '../../api';
 import { expect, test } from '../../fixtures/test';
 import { knownBug } from '../../utils/knownBug';
-import { MISSING_ID } from '../../utils/shop';
+import { MISSING_ID, outOfStockProduct } from '../../utils/shop';
 
 const firstProducts = async (api: import('../../api').Api, limit = 20): Promise<Product[]> =>
   (await json<Page<Product>>(api.products.list({ limit }))).data;
@@ -54,6 +54,23 @@ test.describe('Product API', { tag: ['@product', '@api'] }, () => {
     expect(similar.length).toBeGreaterThan(0);
     expect(similar.length).toBeLessThanOrEqual(10);
     expect(similar.map((p) => p.id)).not.toContain(product.id);
+  });
+
+  // The store hides out-of-stock products from listings and search (seen 2026-11-20); they stay reachable by
+  // their link, e.g. from an old share or a wishlist.
+  test('an out-of-stock product opens by its link but is kept out of listings and search', { tag: '@stock' }, async ({ api }) => {
+    const product = await outOfStockProduct(api);
+    expect((await json<Product>(api.products.getById(product.id))).inStock).toBe(false);
+    const category = product.categories?.[0]?.id ?? product.category?.id;
+    const listings = [
+      { label: 'search by name', query: { searchTerm: product.name, limit: 50 } },
+      ...(category ? [{ label: `category ${category}`, query: { categories: category, limit: 200 } }] : []),
+    ];
+    for (const { label, query } of listings) {
+      const page = await json<Page<Product>>(api.products.list(query));
+      expect(page.data.map((p) => p.id), `"${product.name}" is listed in ${label}`).not.toContain(product.id);
+      expect(page.data.filter((p) => !p.inStock).map((p) => p.name), `Out-of-stock products in ${label}`).toEqual([]);
+    }
   });
 
   test('an unknown slug answers 404 "Product not found"', { tag: '@negative' }, async ({ api }) => {

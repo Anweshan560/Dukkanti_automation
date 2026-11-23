@@ -24,6 +24,19 @@ export interface SpecialItem {
   maxPrice: number;
 }
 
+/**
+ * A coupon in the cart. Its saving is `amount`, which the cart reports in `promotionDiscount` (not in
+ * `discount`), and the cart's `subTotal` is already lowered by it.
+ */
+export interface AppliedCoupon {
+  code: string;
+  discountType: 'percentage' | 'fixed' | string;
+  discountValue: number;
+  type: string;
+  amount: number;
+  remainingToMinimum: number;
+}
+
 export interface Cart {
   id: string;
   items: CartItem[];
@@ -38,7 +51,7 @@ export interface Cart {
   remainingToMinimum: number;
   deliveryCutOff: number;
   total: number;
-  appliedCoupons: unknown[];
+  appliedCoupons: AppliedCoupon[];
   notices: string[];
   deliveryEstimate: { date: string; orderBy: string | null };
 }

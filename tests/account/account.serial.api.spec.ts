@@ -4,7 +4,8 @@
  * Changes the shared customer (its name is put back after every test, test addresses carry the
  * `qa######` marker and are deleted), so it runs in the `customer` project.
  */
-import { errorMessage, json, type Address, type Page, type Product, type User } from '../../api';
+import { buildApi, errorMessage, json, type Address, type Page, type Product, type User } from '../../api';
+import { env } from '../../config/env';
 import { knownBug } from '../../utils/knownBug';
 import { expect, test } from '../../fixtures/test';
 import { HOSTILE_STRINGS, MISSING_ID, purchasableProducts } from '../../utils/shop';
@@ -201,9 +202,30 @@ test.describe('Address API', { tag: ['@account', '@api'] }, () => {
       expect(response.status(), response.url()).toBe(401);
     }
   });
+
+  test("another customer cannot see, change, delete or deliver to this customer's address", { tag: '@security' }, async ({ customerApi, playwright }) => {
+    test.skip(!env.customer2, 'Set CUSTOMER2_PHONE and CUSTOMER2_OTP in .env to test access between customers.');
+    const mine = await json<Address>(customerApi.users.createAddress(buildAddress()));
+    created.push(mine.id);
+    const context = await playwright.request.newContext();
+    try {
+      const { token } = await buildApi(context).users.loginAs(env.customer2!);
+      const other = buildApi(context, token);
+      const theirs = await json<Address[]>(other.users.listAddresses());
+      expect(theirs.map((a) => a.id), 'The other customer can list this address').not.toContain(mine.id);
+      expect([403, 404]).toContain((await other.users.updateAddress(mine.id, { street: 'changed by someone else' })).status());
+      expect([403, 404]).toContain((await other.users.deleteAddress(mine.id)).status());
+      // No checkout call here (rate limited): the cart is empty, so a checkout could not prove anything.
+    } finally {
+      await context.dispose();
+    }
+    const after = (await json<Address[]>(customerApi.users.listAddresses())).find((a) => a.id === mine.id);
+    expect(after, 'The address was deleted by another customer').toBeDefined();
+    expect(after!.street).toBe(mine.street);
+  });
 });
 
-test.describe('Wishlist API', { tag: ['@account', '@wishlist', '@api'] }, () => {
+test.describe('Wishlist API',{ tag: ['@account', '@wishlist', '@api'] }, () => {
   test.beforeEach(async ({ customerApi }) => {
     await json(customerApi.wishlist.clear());
   });

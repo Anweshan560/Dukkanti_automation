@@ -15,7 +15,7 @@ import { STRIPE_CARDS } from '../../pages/checkout/CheckoutPage';
 import { sameMoney } from '../../utils/dom';
 import { recordApiCalls, waitForApi } from '../../utils/network';
 import { absorbCheckoutRateLimit, CHECKOUT_TEST_TIMEOUT } from '../../utils/rateLimit';
-import { expectedTotals, purchasableProducts, quantityForExactly, round2 } from '../../utils/shop';
+import { expectedTotals, purchasableProducts, quantityForExactly, round2, type ExpectedTotals } from '../../utils/shop';
 
 test.use({ storageState: env.storageState.customer });
 test.describe.configure({ mode: 'default' });
@@ -32,6 +32,9 @@ async function seedAboveMinimum(api: import('../../api').Api, customerApi: impor
   const { product, quantity } = await quantityForExactly(api, minOrder);
   return customerApi.cart.seed([{ productId: product.id, quantity: quantity + 1 }]);
 }
+
+/** The four amounts the order summary shows. */
+const amounts = ({ subTotal, vat, deliveryFee, total }: ExpectedTotals) => ({ subTotal, vat, deliveryFee, total });
 
 test.describe('Checkout page before paying', { tag: ['@checkout'] }, () => {
   test('shows the delivery address, the out-of-stock choice, the payment choice and the summary', async ({ api, customerApi, checkoutPage, storeInfo }) => {
@@ -105,6 +108,30 @@ test.describe('Checkout page before paying', { tag: ['@checkout'] }, () => {
     await expect(checkoutPage.couponError).toHaveText('Coupon not found');
     await expect(checkoutPage.couponInput).toHaveAttribute('aria-invalid', 'true');
     expect(await checkoutPage.summary.amount('Total')).toBe(expectedTotals(cart.subTotal, storeInfo).total);
+  });
+
+  test('the test coupon lowers the subtotal, VAT and amount to pay, and Remove puts them back', { tag: '@pricing' }, async ({ api, customerApi, checkoutPage, storeInfo, page }) => {
+    const code = env.testData.couponCode;
+    // Well above the free-delivery line, so the coupon changes only the subtotal and VAT.
+    const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff + 100);
+    const cart = await customerApi.cart.seed([{ productId: product.id, quantity }]);
+    await checkoutPage.open();
+    await checkoutPage.waitUntilReady();
+
+    await checkoutPage.couponInput.fill(code);
+    const applied = waitForApi(page, 'POST', '/coupons/apply');
+    await checkoutPage.applyCoupon.click();
+    expect((await applied).ok(), `${code} was refused`).toBe(true);
+    const saving = round2(cart.subTotal * 0.1);
+    const remove = checkoutPage.couponBox.getByRole('button', { name: `Remove coupon ${code}` });
+    await expect(remove).toBeVisible();
+    await expect(checkoutPage.couponBox).toContainText(saving.toFixed(2));
+    await checkoutPage.summary.expectAmounts(amounts(expectedTotals(round2(cart.subTotal - saving), storeInfo)));
+
+    await remove.click();
+    await expect(remove).toBeHidden();
+    await checkoutPage.summary.expectAmounts(amounts(expectedTotals(cart.subTotal, storeInfo)));
+    expect((await customerApi.cart.current()).appliedCoupons).toEqual([]);
   });
 
   test('a coupon code of only spaces cannot be applied', { tag: '@negative' }, async ({ api, customerApi, checkoutPage, storeInfo }) => {

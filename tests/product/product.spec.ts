@@ -5,7 +5,7 @@
 import { json, type Page, type Product } from '../../api';
 import { expect, test } from '../../fixtures/test';
 import { ProductPage } from '../../pages/product/ProductPage';
-import { dealWithProducts, purchasableProducts, round2 } from '../../utils/shop';
+import { dealWithProducts, outOfStockProduct, purchasableProducts, round2 } from '../../utils/shop';
 
 const discounted = async (api: import('../../api').Api): Promise<Product> => {
   const page = await json<Page<Product>>(api.products.list({ limit: 100 }));
@@ -147,6 +147,17 @@ test.describe('Product page', { tag: ['@product'] }, () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await page.goto('/');
     await page.context().clearCookies({ name: 'PARAGLIDE_LOCALE' });
+  });
+
+  test('an out-of-stock product says so and cannot be added to the cart', { tag: ['@stock', '@states'] }, async ({ api, page }) => {
+    const product = await outOfStockProduct(api);
+    const productPage = new ProductPage(page);
+    await productPage.openSlug(product.slugEn);
+    await expect(productPage.title).toHaveText(product.name);
+    expect(await productPage.priceAmount()).toBe(product.price);
+    await expect(productPage.main.getByRole('button', { name: 'Out of stock', exact: true })).toBeDisabled();
+    await expect(productPage.addToCart).toHaveCount(0);
+    await expect(productPage.increase).toHaveCount(0);
   });
 
   test('a product that does not exist answers 404 with the "Page not found" page', { tag: '@negative' }, async ({ page }) => {

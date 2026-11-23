@@ -1,6 +1,7 @@
 import type { ApiError, LoginResponse, User } from '../../api';
 import { env, requireCustomer } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
+import { MISSING_ID } from '../../utils/shop';
 
 const userShape = {
   id: expect.any(String),
@@ -197,6 +198,27 @@ test.describe('Current user API', { tag: '@auth' }, () => {
       expect(response.status()).toBe(401);
       expect(((await response.json()) as ApiError).message).toBe('Invalid or expired token');
     });
+  });
+
+  /** Real token pieces, re-assembled the way an attacker would: the server must check the signature. */
+  const forgedTokens = (token: string): [string, string][] => {
+    const [header, payload, signature] = token.split('.');
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString()) as Record<string, unknown>;
+    const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    return [
+      ['the user id changed but the old signature kept', [header, encode({ ...claims, id: MISSING_ID }), signature].join('.')],
+      ['the role changed to admin', [header, encode({ ...claims, role: 'admin' }), signature].join('.')],
+      ['the expiry moved forward', [header, encode({ ...claims, exp: 4102444800 }), signature].join('.')],
+      ['the signature removed', [header, payload, ''].join('.')],
+      ['the algorithm set to "none"', [encode({ alg: 'none', typ: 'JWT' }), payload, ''].join('.')],
+    ];
+  };
+
+  test('should respond 401 to a real token that was tampered with', { tag: '@security' }, async ({ request, customerToken }) => {
+    for (const [label, token] of forgedTokens(customerToken)) {
+      const response = await request.get(`${env.apiUrl}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+      expect(response.status(), `A token with ${label} was accepted`).toBe(401);
+    }
   });
 
   test('should respond 401 when the token is sent with the wrong scheme', async ({

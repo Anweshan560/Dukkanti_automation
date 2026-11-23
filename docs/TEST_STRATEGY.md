@@ -35,6 +35,8 @@ Where it runs: **API** = `*.api.spec.ts` (fast, no browser), **UI** = Playwright
 | Orders                      | ✓   | ✓   | Pending / Past tabs, end of list, detail amounts, WhatsApp, Order again (replace / add), privacy, paging     |
 | Account                     | ✓   | ✓   | Profile, addresses (incl. "Discard unsaved changes?"), wishlist, My coupons                                 |
 | Deals, baskets, forms, static | ✓ | ✓   | Deal and basket pages, basket Buy / Customize as a customer, contact / business / sell / request forms, policy pages, 404 |
+| Pay page (WhatsApp link)    | ✓   | ✓   | `tests/payment`: pay / paid / can't pay / not found states, Stripe Checkout with good and declined cards, one Stripe page per order, no personal data, old pay links redirect |
+| Security                    |     | ✓   | Forged tokens, prices and totals sent by the shopper ignored, quantity cap, protected profile fields, address and order privacy (needs `CUSTOMER2_*`), site and API headers (`tests/security`) |
 | API contract                |     | ✓   | `tests/contract`: responses checked against the OpenAPI spec (`/v1/api-json`), endpoint coverage, auth marks |
 | Every page (sprint 9)       | ✓   |     | `tests/sweep`: axe, JS errors and failed loads, broken links, 390 px, Arabic, LCP/CLS; dialogs: focus, axe, Escape |
 | Screenshots                 | ✓   |     | Home sections, 8 guest page types, cart / checkout / account (opt-in `npm run test:visual`, personal data masked) |

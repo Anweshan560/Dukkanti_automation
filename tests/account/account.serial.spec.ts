@@ -9,7 +9,7 @@ import { env } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
 import { AddressesPage, CouponsPage, ProfilePage, WishlistPage } from '../../pages/account/AccountPages';
 import { recordApiCalls, waitForApi } from '../../utils/network';
-import { HOSTILE_STRINGS, purchasableProducts } from '../../utils/shop';
+import { HOSTILE_STRINGS, outOfStockProduct, purchasableProducts } from '../../utils/shop';
 import { buildAddress, isQaMarked, qaName } from '../../utils/testData';
 
 test.use({ storageState: env.storageState.customer });
@@ -241,6 +241,16 @@ test.describe('Wishlist page', { tag: ['@account', '@wishlist'] }, () => {
     await expect(wishlist.countLabel).toHaveText('2 saved items');
     for (const product of products) await expect(wishlist.productLink(product.name)).toBeVisible();
     await wishlist.sidebar.expectCount('Wishlist', 2);
+  });
+
+  test('a saved product that is out of stock says so and offers no Add button', { tag: ['@stock', '@states'] }, async ({ api, customerApi, page }) => {
+    const product = await outOfStockProduct(api);
+    await json(customerApi.wishlist.add(product.id));
+    const wishlist = new WishlistPage(page);
+    await wishlist.open();
+    await expect(wishlist.productLink(product.name)).toBeVisible();
+    await expect(wishlist.main.getByText('Out of stock', { exact: true })).toBeVisible();
+    await expect(wishlist.main.getByRole('button', { name: `Add ${product.name} to cart` })).toHaveCount(0);
   });
 
   test('unsaving from the wishlist removes the product', async ({ api, customerApi, page }) => {

@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import { json, type Api, type Page, type Product, type Promotion, type StoreInfo } from '../api';
+import { env } from '../config/env';
 
 /** Money is kept to 2 decimals everywhere in the store. */
 export const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -79,6 +80,18 @@ export async function dealWithProducts(
   }
   test.skip(true, `No running "${type}" deal with ${count} in-stock product(s)`);
   throw new Error('unreachable');
+}
+
+/**
+ * The product the store keeps out of stock for the tests (`OUT_OF_STOCK_PRODUCT_SLUG`). Skips the test when
+ * it is gone or back in stock, since then nothing out of stock is left to test with.
+ */
+export async function outOfStockProduct(api: Api): Promise<Product> {
+  const response = await api.products.getBySlug(env.testData.outOfStockSlug);
+  test.skip(!response.ok(), `The out-of-stock test product "${env.testData.outOfStockSlug}" was not found`);
+  const product = (await response.json()) as Product;
+  test.skip(product.inStock, `"${product.name}" is back in stock: ask the store owner to set it out of stock again`);
+  return product;
 }
 
 /** A UUID that no record will ever have. */

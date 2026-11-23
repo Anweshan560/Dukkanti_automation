@@ -51,6 +51,14 @@ export const env = {
 
   stripeTestCard: read('STRIPE_TEST_CARD', '4242424242424242'),
 
+  /** Data the store owner keeps on dev for the tests (tests cannot create coupons or change stock). */
+  testData: {
+    /** A coupon that works for the test customer: 10 % off the subtotal. */
+    couponCode: read('TEST_COUPON_CODE', 'SAVE10'),
+    /** A product kept out of stock on purpose. */
+    outOfStockSlug: read('OUT_OF_STOCK_PRODUCT_SLUG', 'smart-chef-sucre-vanilline-7g'),
+  },
+
   /** Store settings the suite was written against. Checked once in tests/setup/store.setup.ts. */
   expectedStore: {
     currency: read('EXPECT_CURRENCY', 'AED'),

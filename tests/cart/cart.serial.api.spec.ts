@@ -4,11 +4,12 @@
  * Runs in the `customer` project (one test at a time): every test changes the shared customer's cart.
  * Each test starts from an empty cart and empties it again afterwards.
  */
-import { buildApi, errorMessage, json, type Cart, type Product } from '../../api';
+import { buildApi, errorMessage, json, type Api, type Cart, type Product } from '../../api';
 import { expect, test } from '../../fixtures/test';
 import { sameMoney } from '../../utils/dom';
 import { knownBug } from '../../utils/knownBug';
-import { expectedTotals, HOSTILE_STRINGS, MISSING_ID, purchasableProducts, quantityForExactly, round2 } from '../../utils/shop';
+import { env } from '../../config/env';
+import { expectedTotals, HOSTILE_STRINGS, MISSING_ID, outOfStockProduct, purchasableProducts, quantityForExactly, round2 } from '../../utils/shop';
 import { qaName } from '../../utils/testData';
 
 test.describe.configure({ mode: 'default' });
@@ -205,11 +206,46 @@ test.describe('Cart API: invalid input is refused', { tag: ['@cart', '@api', '@n
     expect((await customerApi.cart.update(product.id, 1.5)).status()).toBe(400);
   });
 
-  test('an absurd quantity (9999) is refused', async ({ api, customerApi }) => {
-    knownBug('cart-no-quantity-limit');
+  // There is no maximum quantity per product (confirmed by the store owner 2026-11-20): large orders are fine,
+  // so the check is that they are priced exactly, with no rounding drift.
+  test('a large quantity (9999) is accepted and priced exactly', { tag: '@pricing' }, async ({ api, customerApi, storeInfo }) => {
     const [product] = await purchasableProducts(api, 1);
     await customerApi.cart.seed([{ productId: product.id, quantity: 1 }]);
-    expect((await customerApi.cart.update(product.id, 9999)).status(), 'The cart accepted 9999 of one product').toBe(400);
+    expect((await customerApi.cart.update(product.id, 9999)).status()).toBe(200);
+    const cart = await customerApi.cart.current();
+    expect(line(cart, product)?.quantity).toBe(9999);
+    const want = expectedTotals(round2(product.price * 9999), storeInfo);
+    expect(sameMoney(cart.subTotal, want.subTotal), `subtotal ${cart.subTotal}, expected ${want.subTotal}`).toBe(true);
+    expect(sameMoney(cart.vat, want.vat), `VAT ${cart.vat}, expected ${want.vat}`).toBe(true);
+    expect(cart.deliveryFee).toBe(0);
+  });
+
+  test('an out-of-stock product cannot be put in the cart by add, bulk add or update', { tag: '@stock' }, async ({ api, customerApi }) => {
+    knownBug('cart-accepts-out-of-stock');
+    const product = await outOfStockProduct(api);
+    const statuses = [
+      (await customerApi.cart.add(product.id, 1)).status(),
+      (await customerApi.cart.addBulk([{ productId: product.id, quantity: 1 }])).status(),
+      (await customerApi.cart.update(product.id, 2)).status(),
+    ];
+    const cart = await customerApi.cart.current();
+    expect(line(cart, product), `"${product.name}" is out of stock but landed in the cart (answers ${statuses.join(', ')})`).toBeUndefined();
+    for (const status of statuses) expect(status, 'Expected a 4xx refusal').toBeGreaterThanOrEqual(400);
+  });
+
+  test('a price sent with the product is ignored: the line keeps the store price', { tag: '@security' }, async ({ api, customerApi }) => {
+    const [product] = await purchasableProducts(api, 1);
+    const tampered = { price: 0.01, lineTotal: 0.01, compareAtPrice: 0.01, discount: product.price };
+    const added = await customerApi.cart.raw('POST', '/add', { productId: product.id, quantity: 1, ...tampered });
+    expect(added.status(), 'Extra fields should be ignored or refused, never crash').toBeLessThan(500);
+    await customerApi.cart.raw('PATCH', '/update', { productId: product.id, quantity: 2, ...tampered });
+
+    const cart = await customerApi.cart.current();
+    const item = line(cart, product);
+    test.skip(!item, 'The API refused the extra fields, so nothing reached the cart');
+    expect(item!.price).toBe(product.price);
+    expect(sameMoney(item!.lineTotal, round2(product.price * item!.quantity)), `line total ${item!.lineTotal}`).toBe(true);
+    expect(cart.discount).toBe(0);
   });
 
   test('a product that does not exist is refused with 404', async ({ customerApi }) => {
@@ -305,7 +341,7 @@ test.describe('Cart API: permissions', { tag: ['@cart', '@api', '@security'] }, 
 });
 
 test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
-  const couponCode = process.env.TEST_COUPON_CODE?.trim();
+  const couponCode = env.testData.couponCode;
 
   test('the customer coupon list is a list', async ({ customerApi }) => {
     const response = await customerApi.coupons.list();
@@ -370,22 +406,95 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     }
   });
 
-  test('a valid coupon lowers the total and removing it restores the total', async ({ api, customerApi, storeInfo }) => {
-    test.skip(!couponCode, 'Set TEST_COUPON_CODE in .env to a coupon that works on dev (tests cannot create coupons).');
+  /** Applies the test coupon and returns the cart; fails with the API's reason when it is refused. */
+  async function applyTestCoupon(customerApi: Api): Promise<Cart> {
+    const applied = await customerApi.coupons.apply(couponCode);
+    expect(applied.ok(), `${couponCode} was refused: ${await errorMessage(applied)}`).toBe(true);
+    return customerApi.cart.current();
+  }
+
+  test(`${couponCode} takes 10% off the subtotal, VAT is charged on what is left, and removing it restores the total`, async ({ api, customerApi, storeInfo }) => {
+    // Well above the free-delivery line, so the delivery fee stays 0 and only the coupon moves the total.
+    const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff + 100);
+    const before = await customerApi.cart.seed([{ productId: product.id, quantity }]);
+    const cart = await applyTestCoupon(customerApi);
+
+    expect(cart.appliedCoupons).toHaveLength(1);
+    const [coupon] = cart.appliedCoupons;
+    expect(coupon).toMatchObject({ code: couponCode, discountType: 'percentage', discountValue: 10 });
+    const saving = round2(before.subTotal * 0.1);
+    expect(sameMoney(coupon.amount, saving), `saving ${coupon.amount}, expected ${saving}`).toBe(true);
+    // The saving is reported as promotionDiscount and already taken off the subtotal.
+    expect(sameMoney(cart.promotionDiscount, saving)).toBe(true);
+    const want = expectedTotals(round2(before.subTotal - saving), storeInfo);
+    expect(sameMoney(cart.subTotal, want.subTotal), `subtotal ${cart.subTotal}, expected ${want.subTotal}`).toBe(true);
+    expect(sameMoney(cart.vat, want.vat), `VAT ${cart.vat}, expected ${want.vat} (5% of the lowered subtotal)`).toBe(true);
+    expect(sameMoney(cart.total, want.total), `total ${cart.total}, expected ${want.total}`).toBe(true);
+
+    expect((await customerApi.coupons.remove(couponCode)).ok()).toBe(true);
+    const removed = await customerApi.cart.current();
+    expect(removed.appliedCoupons).toEqual([]);
+    expect(removed.promotionDiscount).toBe(0);
+    expect(removed.total).toBe(before.total);
+  });
+
+  test(`applying ${couponCode} twice counts it once`, async ({ api, customerApi, storeInfo }) => {
+    const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff + 100);
+    await customerApi.cart.seed([{ productId: product.id, quantity }]);
+    const once = await applyTestCoupon(customerApi);
+    const twice = await applyTestCoupon(customerApi);
+    expect(twice.appliedCoupons).toHaveLength(1);
+    expect(twice.total).toBe(once.total);
+  });
+
+  test('the coupon saving follows the cart when products are added', async ({ api, customerApi }) => {
+    const [first, second] = await purchasableProducts(api, 2);
+    await customerApi.cart.seed([{ productId: first.id, quantity: 2 }]);
+    await applyTestCoupon(customerApi);
+    await customerApi.cart.add(second.id, 3);
+    const cart = await customerApi.cart.current();
+    const full = round2(first.price * 2 + second.price * 3);
+    expect(cart.appliedCoupons, 'The coupon fell off when the cart changed').toHaveLength(1);
+    expect(sameMoney(cart.appliedCoupons[0].amount, round2(full * 0.1)), `saving ${cart.appliedCoupons[0].amount} on ${full}`).toBe(true);
+    expect(sameMoney(cart.subTotal, round2(full - round2(full * 0.1)))).toBe(true);
+  });
+
+  // The free-delivery line and the minimum order are judged on the subtotal after the coupon (seen 2026-11-20).
+  // At exactly 200 the coupon saves 20 but brings the 20 delivery fee back: the shopper pays 1 less, not 21.
+  test('a coupon that takes the subtotal under the free-delivery line brings the delivery fee back', { tag: '@boundary' }, async ({ api, customerApi, storeInfo }) => {
     const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff);
     const before = await customerApi.cart.seed([{ productId: product.id, quantity }]);
-    const applied = await customerApi.coupons.apply(couponCode as string);
-    expect(applied.ok(), await errorMessage(applied)).toBe(true);
-    const withCoupon = await customerApi.cart.current();
-    expect(withCoupon.appliedCoupons.length).toBe(1);
-    expect(withCoupon.discount).toBeGreaterThan(0);
-    expect(withCoupon.total).toBeLessThan(before.total);
-    // Applying it twice does not double the discount.
-    await customerApi.coupons.apply(couponCode as string);
-    expect((await customerApi.cart.current()).discount).toBe(withCoupon.discount);
-    expect((await customerApi.coupons.remove(couponCode as string)).ok()).toBe(true);
-    const removed = await customerApi.cart.current();
-    expect(removed.discount).toBe(0);
-    expect(removed.total).toBe(before.total);
+    expect(before.deliveryFee).toBe(0);
+    const cart = await applyTestCoupon(customerApi);
+    const want = expectedTotals(round2(storeInfo.deliveryCutOff * 0.9), storeInfo);
+    expect(cart.deliveryFee).toBe(storeInfo.deliveryFee);
+    expect(sameMoney(cart.total, want.total), `total ${cart.total}, expected ${want.total}`).toBe(true);
+  });
+
+  test('a coupon that takes the subtotal under the minimum order blocks checkout until more is added', { tag: '@boundary' }, async ({ api, customerApi, storeInfo }) => {
+    const { product, quantity } = await quantityForExactly(api, storeInfo.minOrderAmount);
+    const before = await customerApi.cart.seed([{ productId: product.id, quantity }]);
+    expect(before.remainingToMinimum).toBe(0);
+    const cart = await applyTestCoupon(customerApi);
+    const lowered = round2(storeInfo.minOrderAmount * 0.9);
+    expect(sameMoney(cart.subTotal, lowered)).toBe(true);
+    expect(sameMoney(cart.remainingToMinimum, round2(storeInfo.minOrderAmount - lowered)), `remaining ${cart.remainingToMinimum}`).toBe(true);
+  });
+
+  test('coupon codes must be typed in capitals: a lowercase code is not found', { tag: '@negative' }, async ({ api, customerApi }) => {
+    const [product] = await purchasableProducts(api, 1);
+    await customerApi.cart.seed([{ productId: product.id, quantity: 2 }]);
+    const response = await customerApi.coupons.apply(couponCode.toLowerCase());
+    expect(response.status()).toBe(404);
+    expect((await customerApi.cart.current()).appliedCoupons).toEqual([]);
+  });
+
+  test('emptying the cart drops the coupon', async ({ api, customerApi }) => {
+    const [product] = await purchasableProducts(api, 1);
+    await customerApi.cart.seed([{ productId: product.id, quantity: 2 }]);
+    await applyTestCoupon(customerApi);
+    await json(customerApi.cart.clear());
+    await customerApi.cart.add(product.id, 1);
+    expect((await customerApi.cart.current()).appliedCoupons).toEqual([]);
   });
 });
