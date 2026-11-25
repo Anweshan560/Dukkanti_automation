@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), quiet: true });
 
-const read = (name: string, fallback = ''): string => (process.env[name] ?? fallback).trim();
+const read = (name: string, fallback = ''): string => process.env[name]?.trim() || fallback;
 
 export interface Credentials {
   /** Full international number, e.g. `+971501234567`. */
