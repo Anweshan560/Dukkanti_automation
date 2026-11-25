@@ -105,14 +105,15 @@ test.describe('Product page', { tag: ['@product'] }, () => {
   );
 
   test(
-    'a guest who taps Add to cart or the heart is asked to sign in',
+    'a guest can add to the cart without signing in, but the heart asks them to sign in',
     { tag: ['@states', '@security'] },
     async ({ api, page, signInDialog }) => {
       const [product] = await purchasableProducts(api, 1);
       const productPage = new ProductPage(page);
       await productPage.openSlug(product.slugEn);
-      await productPage.clickUntil(productPage.addToCart, () => signInDialog.expectOpen());
-      await signInDialog.closeButton.click();
+      await productPage.clickUntil(productPage.addToCart, () =>
+        expect(productPage.header.cartButtonWithLines).toBeVisible({ timeout: 2_000 }),
+      );
       await signInDialog.expectClosed();
       await productPage.heart.click();
       await signInDialog.expectOpen();

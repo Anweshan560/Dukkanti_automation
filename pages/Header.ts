@@ -19,6 +19,8 @@ export class Header {
   readonly accountMenu: Locator;
   /** Name is "Cart" when empty and "Cart (<lines>)" otherwise. Opens the cart drawer. */
   readonly cartButton: Locator;
+  /** The cart button once the cart holds at least one line ("Cart (<lines>)"), for guests too. */
+  readonly cartButtonWithLines: Locator;
   /** "1 item" / "3 items" next to the cart icon. */
   readonly cartItemsLabel: Locator;
   readonly cartTotal: Locator;
@@ -45,6 +47,7 @@ export class Header {
     this.accountButton = this.banner.getByRole('button', { name: 'Account' });
     this.accountMenu = page.getByRole('menu', { name: 'Account' });
     this.cartButton = this.banner.getByRole('button', { name: /^Cart( \(\d+\))?$/ });
+    this.cartButtonWithLines = this.banner.getByRole('button', { name: /^Cart \(\d+\)$/ });
     this.cartItemsLabel = this.cartButton.getByText(/^\d+ items?$/);
     this.cartTotal = this.cartButton.getByText(/^\d[\d,]*\.\d{2}$/);
     this.wishlist = this.banner

@@ -27,8 +27,12 @@ Store settings exposed by `GET /v1/info` (the setup check will assert these befo
 | Customer | Everything above plus cart, wishlist, delivery location, checkout, orders, addresses, profile.      |
 | Admin    | Exists in the API (`/v1/admin/*`) but **out of scope** — no admin access.                           |
 
-A guest has **no cart**. Clicking Add to cart, Wishlist, Cart, or "Delivering to Dubai" opens the sign-in
-dialog. `/cart`, `/checkout`, `/account` and `/account/orders` also open it.
+Since 2026-11-25 a guest **has a cart**, kept in the browser (`localStorage` keys `guest_cart` and
+`guest_cart_changed_at`, no cart API calls). Add to cart, "+" on cards and basket "Buy" work without signing in,
+and the header cart button opens the cart drawer. At `/checkout` a guest with items gets an inline "Your phone
+number" step, with address and payment locked until the number is verified; with an empty cart `/checkout`
+sends them away. Wishlist (heart and header), "Delivering to Dubai", an empty `/cart`, `/account` and
+`/account/*` still open the sign-in dialog.
 
 ## 3. Pages (guest view)
 

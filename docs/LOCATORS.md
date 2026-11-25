@@ -112,7 +112,8 @@ Language. The phone menu says "Logout" where the desktop says "Sign out".
 | Terms / Privacy | `dialog.getByRole('link', { name: 'Terms' \| 'Privacy Policy' })`                                                        |
 | Close           | `dialog.getByRole('button', { name: 'Close' })`                                                                          |
 
-The same dialog opens on its own for a guest at `/cart`, `/checkout` and `/account/*`.
+The same dialog opens on its own for a guest at an empty `/cart` and at `/account/*`. A guest with items at
+`/checkout` gets an inline step instead: heading "Your phone number", button `Send code`.
 
 ### Here's how delivery works (delivery promo button)
 

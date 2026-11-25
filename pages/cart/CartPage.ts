@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { CartLines, DeliveryProgress, OrderSummary } from './CartLines';
 
-/** `/cart`, signed in. A guest gets the sign-in dialog instead. */
+/** `/cart`. A guest with an empty cart gets the sign-in dialog instead; a guest cart lives in localStorage. */
 export class CartPage extends BasePage {
   protected readonly path = '/cart';
   protected readonly ready: Locator;

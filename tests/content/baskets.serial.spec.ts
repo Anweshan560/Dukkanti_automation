@@ -6,7 +6,7 @@
  * "Customize" opens the basket page, where products are added one by one.
  *
  * Customer project: these tests change the cart, which is emptied before and after each one.
- * The guest side (Buy asks a guest to sign in, the pages themselves) is in deals-baskets.spec.ts.
+ * The guest side (Buy fills a guest's own cart, the pages themselves) is in deals-baskets.spec.ts.
  */
 import type { Locator, Page } from '@playwright/test';
 import { json, type Api, type Basket, type Product } from '../../api';

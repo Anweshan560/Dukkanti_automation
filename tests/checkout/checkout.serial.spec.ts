@@ -444,12 +444,27 @@ test.describe('Placing an order', { tag: ['@checkout'] }, () => {
 test.describe('Checkout for a guest', { tag: ['@checkout', '@security'] }, () => {
   test.use({ storageState: env.storageState.guest });
 
-  test('a guest who opens /checkout is asked to sign in and sees no order form', async ({
+  test('a guest with items must verify their phone at checkout before address or payment open', async ({
     page,
-    signInDialog,
+    homePage,
   }) => {
+    await homePage.open();
+    await homePage.header.clickUntil(
+      homePage.addToCartButtons.first(),
+      homePage.header.cartButtonWithLines,
+      'The product in the header cart',
+    );
     await page.goto('/checkout');
-    await signInDialog.expectOpen();
+    const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { name: 'Your phone number' })).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Send code' })).toBeVisible();
+    await expect(main.getByText('Opens once your number is verified')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^Proceed to pay/ })).toHaveCount(0);
+  });
+
+  test('a guest with an empty cart who opens /checkout sees no order form', async ({ page }) => {
+    await page.goto('/checkout');
+    await expect(page).not.toHaveURL(/\/checkout/);
     await expect(page.getByRole('button', { name: /^Proceed to pay/ })).toHaveCount(0);
   });
 

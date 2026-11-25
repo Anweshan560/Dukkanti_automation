@@ -493,7 +493,7 @@ test.describe('Home product rows', { tag: '@home' }, () => {
   );
 
   test(
-    'a guest who taps a heart or "+" is asked to sign in',
+    'a guest who taps a heart is asked to sign in, and "+" adds to the cart without signing in',
     { tag: ['@regression', '@states'] },
     async ({ homePage, signInDialog }) => {
       await homePage.open();
@@ -507,9 +507,10 @@ test.describe('Home product rows', { tag: '@home' }, () => {
       await expect(signInDialog.anyStep).toBeHidden();
       await homePage.header.clickUntil(
         card.addButton,
-        signInDialog.anyStep,
-        'Sign-in dialog after tapping +',
+        homePage.header.cartButtonWithLines,
+        'The product in the header cart after tapping +',
       );
+      await expect(signInDialog.anyStep).toBeHidden();
     },
   );
 });

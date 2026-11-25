@@ -3,6 +3,7 @@
  */
 import { endsLabel, json, promotionTitle, type Basket, type Page, type Product } from '../../api';
 import { expect, test } from '../../fixtures/test';
+import { Header } from '../../pages/Header';
 import { clickToNavigate } from '../../utils/dom';
 
 type BasketWithFilters = Basket & {
@@ -157,16 +158,15 @@ test.describe('Baskets pages', { tag: ['@content'] }, () => {
   });
 
   test(
-    'a guest who taps "Buy" on a basket is asked to sign in',
+    'a guest who taps "Buy" on a basket gets its products in the cart without signing in',
     { tag: '@states' },
     async ({ page, signInDialog }) => {
       await page.goto('/baskets');
       const buy = page.getByRole('main').getByRole('button', { name: 'Buy' }).first();
       test.skip(!(await buy.count()), 'No basket offers Buy');
-      await expect(async () => {
-        await buy.click();
-        await signInDialog.expectOpen();
-      }).toPass({ timeout: 15_000 });
+      const added = page.getByRole('dialog', { name: /^\d+ items? added to your cart$/ });
+      await new Header(page).clickUntil(buy, added, 'The "items added to your cart" dialog');
+      await expect(signInDialog.anyStep).toBeHidden();
     },
   );
 });
