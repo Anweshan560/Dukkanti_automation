@@ -279,7 +279,9 @@ test.describe('Address API', { tag: ['@account', '@api'] }, () => {
           'The other customer can list this address',
         ).not.toContain(mine.id);
         expect([403, 404]).toContain(
-          (await other.users.updateAddress(mine.id, { street: 'changed by someone else' })).status(),
+          (
+            await other.users.updateAddress(mine.id, { ...buildAddress(), street: 'changed by someone else' })
+          ).status(),
         );
         expect([403, 404]).toContain((await other.users.deleteAddress(mine.id)).status());
         // No checkout call here (rate limited): the cart is empty, so a checkout could not prove anything.

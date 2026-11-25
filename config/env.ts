@@ -22,8 +22,9 @@ const credentials = (prefix: string): Credentials | undefined => {
   const raw = read(`${prefix}_PHONE`).replace(/[\s-]/g, '');
   const otp = read(`${prefix}_OTP`);
   if (!raw || !otp) return undefined;
-  // A number written without a country code gets <PREFIX>_DIAL_CODE (default: UAE).
-  const phone = raw.startsWith('+') ? raw : `${read(`${prefix}_DIAL_CODE`, '+971')}${raw}`;
+  // A number written without a country code gets <PREFIX>_DIAL_CODE, else CUSTOMER_DIAL_CODE, else UAE.
+  const fallbackDialCode = read('CUSTOMER_DIAL_CODE', '+971');
+  const phone = raw.startsWith('+') ? raw : `${read(`${prefix}_DIAL_CODE`, fallbackDialCode)}${raw}`;
   const dialCode = DIAL_CODES.find((code) => phone.startsWith(code));
   if (!dialCode) {
     throw new Error(
