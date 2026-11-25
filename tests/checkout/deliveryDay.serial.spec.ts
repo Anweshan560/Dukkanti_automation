@@ -26,12 +26,14 @@ test.describe.configure({ mode: 'default' });
 const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
 
 /** "2026-11-19" for a moment, as the calendar day in Dubai. */
-const dubaiDay = (time: Date | string): string => new Date(new Date(time).getTime() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+const dubaiDay = (time: Date | string): string =>
+  new Date(new Date(time).getTime() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
 
 /** The moment it is `hh:mm` in Dubai on the Dubai calendar day `day` ("2026-11-19"). */
 const dubaiTime = (day: string, hhmm: string): Date => new Date(`${day}T${hhmm}:00+04:00`);
 
-const addDays = (day: string, days: number): string => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+const addDays = (day: string, days: number): string =>
+  new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 /** Minutes from now to today's cut-off in Dubai; negative once it has passed. */
 function minutesToCutoff(info: StoreInfo, now = new Date()): number {
@@ -58,27 +60,40 @@ test.afterEach(async ({ customerApi }) => {
 });
 
 test.describe('Same-day delivery cut-off', { tag: ['@checkout', '@delivery'] }, () => {
-  test('the API promises today before the cut-off and a later day after it', { tag: '@api' }, async ({ api, customerApi, storeInfo }) => {
-    test.skip(!storeInfo.sameDayDeliveryEnabled, 'Same-day delivery is switched off in the store settings');
-    const now = new Date();
-    const minutes = minutesToCutoff(storeInfo, now);
-    // Too close to call: the answer may change between the two requests.
-    test.skip(Math.abs(minutes) < 2, `Run within 2 minutes of the ${storeInfo.sameDayCutoff} cut-off`);
+  test(
+    'the API promises today before the cut-off and a later day after it',
+    { tag: '@api' },
+    async ({ api, customerApi, storeInfo }) => {
+      test.skip(!storeInfo.sameDayDeliveryEnabled, 'Same-day delivery is switched off in the store settings');
+      const now = new Date();
+      const minutes = minutesToCutoff(storeInfo, now);
+      // Too close to call: the answer may change between the two requests.
+      test.skip(Math.abs(minutes) < 2, `Run within 2 minutes of the ${storeInfo.sameDayCutoff} cut-off`);
 
-    const info = await json<StoreInfo>(api.info.getInfo());
-    const cart = await customerApi.cart.current();
-    const today = dubaiDay(now);
+      const info = await json<StoreInfo>(api.info.getInfo());
+      const cart = await customerApi.cart.current();
+      const today = dubaiDay(now);
 
-    expect(cart.deliveryEstimate, 'The cart promises the same delivery as /info').toEqual(info.deliveryEstimate);
-    const { date, orderBy } = info.deliveryEstimate;
-    if (minutes > 0) {
-      expect(dubaiDay(date), `Before ${storeInfo.sameDayCutoff} Dubai time the delivery is today`).toBe(today);
-      expect(orderBy && new Date(orderBy).toISOString(), 'Order by: today at the cut-off').toBe(dubaiTime(today, storeInfo.sameDayCutoff).toISOString());
-    } else {
-      expect(dubaiDay(date) > today, `After ${storeInfo.sameDayCutoff} Dubai time the delivery is on a later day (got ${date})`).toBe(true);
-      expect(orderBy, 'After the cut-off there is no "order by" time').toBeNull();
-    }
-  });
+      expect(cart.deliveryEstimate, 'The cart promises the same delivery as /info').toEqual(
+        info.deliveryEstimate,
+      );
+      const { date, orderBy } = info.deliveryEstimate;
+      if (minutes > 0) {
+        expect(dubaiDay(date), `Before ${storeInfo.sameDayCutoff} Dubai time the delivery is today`).toBe(
+          today,
+        );
+        expect(orderBy && new Date(orderBy).toISOString(), 'Order by: today at the cut-off').toBe(
+          dubaiTime(today, storeInfo.sameDayCutoff).toISOString(),
+        );
+      } else {
+        expect(
+          dubaiDay(date) > today,
+          `After ${storeInfo.sameDayCutoff} Dubai time the delivery is on a later day (got ${date})`,
+        ).toBe(true);
+        expect(orderBy, 'After the cut-off there is no "order by" time').toBeNull();
+      }
+    },
+  );
 
   test('before the cut-off the cart says "Today" and counts down to it', async ({ page, storeInfo }) => {
     const day = dubaiDay(new Date());
@@ -117,7 +132,9 @@ test.describe('Same-day delivery cut-off', { tag: ['@checkout', '@delivery'] }, 
     const tomorrow = addDays(day, 1);
     await serveEstimate(page, { date: dubaiTime(tomorrow, '12:00').toISOString(), orderBy: null });
     // 2 hours after today's cut-off.
-    await page.clock.install({ time: new Date(dubaiTime(day, storeInfo.sameDayCutoff).getTime() + 2 * 3_600_000) });
+    await page.clock.install({
+      time: new Date(dubaiTime(day, storeInfo.sameDayCutoff).getTime() + 2 * 3_600_000),
+    });
 
     const cartPage = new CartPage(page);
     await cartPage.open();

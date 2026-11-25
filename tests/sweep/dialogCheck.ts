@@ -22,7 +22,9 @@ export async function checkDialog(
   });
 
   await test.step('the focus moves into it', async () => {
-    await expect.poll(() => hasFocusWithin(dialog), { message: `The focus stayed outside the ${name}` }).toBe(true);
+    await expect
+      .poll(() => hasFocusWithin(dialog), { message: `The focus stayed outside the ${name}` })
+      .toBe(true);
   });
 
   await test.step('axe finds no serious or critical issues inside it', async () => {
@@ -31,14 +33,24 @@ export async function checkDialog(
     // and then wait until nothing is moving.
     await page.waitForTimeout(500);
     await expect
-      .poll(() => dialog.evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running').length), {
-        intervals: [500, 300, 300],
-        timeout: 10_000,
-      })
+      .poll(
+        () =>
+          dialog.evaluate(
+            (el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running').length,
+          ),
+        {
+          intervals: [500, 300, 300],
+          timeout: 10_000,
+        },
+      )
       .toBe(0);
     // axe takes a CSS selector, so mark the open dialog for it.
     await dialog.evaluate((el) => el.setAttribute('data-qa-axe', ''));
-    const violations = await seriousAxeViolations(page, { include: '[data-qa-axe]', skipKnownSiteIssues: true, name: `axe-${name.replace(/\W+/g, '-')}` });
+    const violations = await seriousAxeViolations(page, {
+      include: '[data-qa-axe]',
+      skipKnownSiteIssues: true,
+      name: `axe-${name.replace(/\W+/g, '-')}`,
+    });
     await dialog.evaluate((el) => el.removeAttribute('data-qa-axe')).catch(() => {});
     expect.soft(violations, `Serious/critical accessibility issues in the ${name}`).toEqual([]);
   });

@@ -11,7 +11,12 @@ import { env } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
 import { hasHorizontalOverflow, scrollThroughPage } from '../../utils/dom';
 import { knownBug } from '../../utils/knownBug';
-import { brokenLinksAndImages, KNOWN_SITE_AXE_ISSUES, seriousAxeViolations, watchPageErrors } from '../../utils/quality';
+import {
+  brokenLinksAndImages,
+  KNOWN_SITE_AXE_ISSUES,
+  seriousAxeViolations,
+  watchPageErrors,
+} from '../../utils/quality';
 import { quantityForExactly } from '../../utils/shop';
 import { CUSTOMER_PAGES, resolveOrSkip } from './pageTypes';
 
@@ -74,27 +79,33 @@ for (const type of CUSTOMER_PAGES) {
   });
 }
 
-test.describe('Signed-in accessibility issues already reported', { tag: ['@sweep', '@a11y', '@nonfunctional'] }, () => {
-  // Left out of the per-page axe checks above and checked here once per bug, so their fix is noticed.
-  const issues = KNOWN_SITE_AXE_ISSUES.filter((i) => i.shownOn.customer);
-  for (const bug of [...new Set(issues.map((i) => i.bug))]) {
-    const issue = issues.find((i) => i.bug === bug)!;
-    test(`${bug} on ${issue.shownOn.path}`, async ({ customerApi, page }) => {
-      knownBug(bug);
-      let path = issue.shownOn.path;
-      if (path.includes('{pending order}')) {
-        const [order] = (await json<ApiPage<OrderSummary>>(customerApi.orders.list({ page: 1, limit: 1, state: 'active' }))).data;
-        test.skip(!order, 'The test customer has no pending order');
-        path = path.replace('{pending order}', order.id);
-      }
-      await page.goto(path);
-      await scrollThroughPage(page);
-      if (bug === 'order-tracker-a11y') {
-        await expect(page.getByRole('progressbar').first()).toBeVisible();
-        // The step colours change with a 0.5 s transition.
-        await page.waitForTimeout(1_000);
-      }
-      expect(await seriousAxeViolations(page, { onlyKnown: bug })).toEqual([]);
-    });
-  }
-});
+test.describe(
+  'Signed-in accessibility issues already reported',
+  { tag: ['@sweep', '@a11y', '@nonfunctional'] },
+  () => {
+    // Left out of the per-page axe checks above and checked here once per bug, so their fix is noticed.
+    const issues = KNOWN_SITE_AXE_ISSUES.filter((i) => i.shownOn.customer);
+    for (const bug of [...new Set(issues.map((i) => i.bug))]) {
+      const issue = issues.find((i) => i.bug === bug)!;
+      test(`${bug} on ${issue.shownOn.path}`, async ({ customerApi, page }) => {
+        knownBug(bug);
+        let path = issue.shownOn.path;
+        if (path.includes('{pending order}')) {
+          const [order] = (
+            await json<ApiPage<OrderSummary>>(customerApi.orders.list({ page: 1, limit: 1, state: 'active' }))
+          ).data;
+          test.skip(!order, 'The test customer has no pending order');
+          path = path.replace('{pending order}', order.id);
+        }
+        await page.goto(path);
+        await scrollThroughPage(page);
+        if (bug === 'order-tracker-a11y') {
+          await expect(page.getByRole('progressbar').first()).toBeVisible();
+          // The step colours change with a 0.5 s transition.
+          await page.waitForTimeout(1_000);
+        }
+        expect(await seriousAxeViolations(page, { onlyKnown: bug })).toEqual([]);
+      });
+    }
+  },
+);

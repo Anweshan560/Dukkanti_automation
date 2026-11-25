@@ -123,7 +123,9 @@ test.describe('Responses match the spec: public endpoints', { tag: ['@api', '@co
     const byId = await api.products.getById(product.id);
     const bySlug = await api.products.getBySlug(product.slugEn);
     expect.soft(contract.check('get', '/v1/products/{id}', 200, await byId.json()), 'by id').toEqual([]);
-    expect.soft(contract.check('get', '/v1/products/slug/{slug}', 200, await bySlug.json()), 'by slug').toEqual([]);
+    expect
+      .soft(contract.check('get', '/v1/products/slug/{slug}', 200, await bySlug.json()), 'by slug')
+      .toEqual([]);
   });
 
   test('an unknown product answers a status the spec documents', { tag: '@negative' }, async ({ api }) => {
@@ -146,10 +148,14 @@ test.describe('Responses match the spec: signed-in endpoints', { tag: ['@api', '
 
   for (const [path, call] of simple) {
     test(`GET ${path}`, async ({ customerApi }) => {
-      if (['/v1/users/addresses', '/v1/cart', '/v1/orders'].includes(path)) knownBug('openapi-response-schemas-wrong');
+      if (['/v1/users/addresses', '/v1/cart', '/v1/orders'].includes(path))
+        knownBug('openapi-response-schemas-wrong');
       const response = await call(customerApi);
       expect(response.status()).toBe(200);
-      expect(contract.check('get', path, 200, await response.json()), `GET ${path} differs from the spec`).toEqual([]);
+      expect(
+        contract.check('get', path, 200, await response.json()),
+        `GET ${path} differs from the spec`,
+      ).toEqual([]);
     });
   }
 

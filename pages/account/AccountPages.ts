@@ -100,7 +100,9 @@ export class OrderDetailPage extends AccountPage {
     this.loadError = this.main.getByRole('alert');
     this.itemsHeading = this.main.getByRole('heading', { name: /^\d+ items?$/, level: 2 });
     this.items = this.main.getByRole('list').first().getByRole('listitem');
-    this.timeline = this.main.getByRole('heading', { name: 'Order timeline' }).locator('xpath=following::*[@role="list" or self::ul][1]');
+    this.timeline = this.main
+      .getByRole('heading', { name: 'Order timeline' })
+      .locator('xpath=following::*[@role="list" or self::ul][1]');
   }
 
   async openOrder(id: string): Promise<void> {
@@ -113,7 +115,9 @@ export class OrderDetailPage extends AccountPage {
   }
 
   /** "Subtotal 80.50", "Delivery fee 20.00", "VAT 4.03", "Total 104.53". */
-  async amount(label: 'Subtotal' | 'Delivery fee' | 'VAT' | 'Total' | 'Pay on delivery fee' | 'Discount'): Promise<number> {
+  async amount(
+    label: 'Subtotal' | 'Delivery fee' | 'VAT' | 'Total' | 'Pay on delivery fee' | 'Discount',
+  ): Promise<number> {
     const text = (await readableText(this.main)).replace(/\s+/g, ' ');
     const match = new RegExp(`${label}\\s*([\\d,]+\\.\\d{2})`).exec(text);
     return match ? parseMoney(match[1]) : NaN;
@@ -141,12 +145,18 @@ export class ProfilePage extends AccountPage {
     this.email = this.main.getByRole('textbox', { name: /^Email/ });
     this.save = this.main.getByRole('button', { name: 'Save changes' });
     this.deleteAccount = this.main.getByRole('button', { name: 'Delete account' });
-    this.errors = this.main.getByRole('alert').or(this.main.locator('[aria-invalid="true"] ~ *, [data-slot="form-message"]'));
+    this.errors = this.main
+      .getByRole('alert')
+      .or(this.main.locator('[aria-invalid="true"] ~ *, [data-slot="form-message"]'));
   }
 
   /** The message tied to a field (aria-describedby / aria-errormessage), or the alert next to it. */
   fieldError(field: Locator): Locator {
-    return field.locator('xpath=ancestor::*[self::div or self::label][1]/following-sibling::*[1] | ancestor::div[1]//*[@role="alert" or @data-slot="form-message"]').first();
+    return field
+      .locator(
+        'xpath=ancestor::*[self::div or self::label][1]/following-sibling::*[1] | ancestor::div[1]//*[@role="alert" or @data-slot="form-message"]',
+      )
+      .first();
   }
 }
 
@@ -190,7 +200,16 @@ export class AddressDialog {
     this.keepEditing = this.discardConfirmation.getByRole('button', { name: 'Cancel' });
   }
 
-  async fill(values: { type?: string; nickname?: string; city?: string; area?: string; street?: string; building?: string; unit?: string; phone?: string }): Promise<void> {
+  async fill(values: {
+    type?: string;
+    nickname?: string;
+    city?: string;
+    area?: string;
+    street?: string;
+    building?: string;
+    unit?: string;
+    phone?: string;
+  }): Promise<void> {
     if (values.type) await this.addressType.getByRole('radio', { name: values.type }).check();
     if (values.nickname !== undefined) await this.nickname.fill(values.nickname);
     if (values.city) await this.city.getByRole('radio', { name: values.city }).check();

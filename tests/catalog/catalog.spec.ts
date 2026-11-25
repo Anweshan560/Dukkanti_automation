@@ -424,7 +424,10 @@ test.describe('Category, country and brand pages', { tag: '@catalog' }, () => {
     });
   }
 
-  test('should list every local business on /local-businesses and filter them with its search box', async ({ page, api }) => {
+  test('should list every local business on /local-businesses and filter them with its search box', async ({
+    page,
+    api,
+  }) => {
     const local = await json<Brand[]>(api.brands.list({ localOnly: true }));
     test.skip(local.length < 2, 'Needs two local businesses to see the search narrow the list');
     const main = page.getByRole('main');
@@ -432,7 +435,8 @@ test.describe('Category, country and brand pages', { tag: '@catalog' }, () => {
     await page.goto('/local-businesses');
     await expect(main.getByRole('heading', { name: 'Local businesses', level: 1 })).toBeVisible();
     await expect(entries).toHaveCount(local.length);
-    for (const business of local) await expect(entries.filter({ hasText: business.name }).first(), business.name).toBeVisible();
+    for (const business of local)
+      await expect(entries.filter({ hasText: business.name }).first(), business.name).toBeVisible();
 
     // The box is labelled "Search brands..." here too.
     const search = main.getByRole('searchbox');
@@ -442,7 +446,8 @@ test.describe('Category, country and brand pages', { tag: '@catalog' }, () => {
       await search.fill(wanted.name);
       await expect.poll(() => entries.count(), { timeout: 3_000 }).toBeLessThan(local.length);
     }, 'Typing in the search box did not narrow the list').toPass({ timeout: 30_000 });
-    for (const name of await entries.allInnerTexts()) expect(name.toLowerCase()).toContain(wanted.name.toLowerCase());
+    for (const name of await entries.allInnerTexts())
+      expect(name.toLowerCase()).toContain(wanted.name.toLowerCase());
     await entries.filter({ hasText: wanted.name }).first().click();
     await expect(page).toHaveURL(/\/products\/brands\//);
     await expect(main.getByRole('heading', { level: 1 })).toHaveText(wanted.name);

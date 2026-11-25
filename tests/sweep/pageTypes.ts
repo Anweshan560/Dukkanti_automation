@@ -6,7 +6,16 @@
  * data does not allow the page (no running deal), and the test skips.
  */
 import { test } from '@playwright/test';
-import { json, type Api, type Basket, type Brand, type Category, type Country, type OrderSummary, type Page } from '../../api';
+import {
+  json,
+  type Api,
+  type Basket,
+  type Brand,
+  type Category,
+  type Country,
+  type OrderSummary,
+  type Page,
+} from '../../api';
 import { ARABIC } from '../../utils/quality';
 import { purchasableProducts } from '../../utils/shop';
 
@@ -23,9 +32,7 @@ export interface PageType {
   resolve: (api: Api) => Promise<ResolvedPage | null>;
 }
 
-const fixed =
-  (path: string) =>
-  async (): Promise<ResolvedPage> => ({ path });
+const fixed = (path: string) => async (): Promise<ResolvedPage> => ({ path });
 
 /** Pages a guest can open. */
 export const GUEST_PAGES: PageType[] = [
@@ -42,7 +49,9 @@ export const GUEST_PAGES: PageType[] = [
   },
   {
     name: 'country listing',
-    resolve: async (api) => ({ path: `/products/countries/${(await json<Country[]>(api.countries.list()))[0].id}` }),
+    resolve: async (api) => ({
+      path: `/products/countries/${(await json<Country[]>(api.countries.list()))[0].id}`,
+    }),
   },
   {
     name: 'brand listing',
@@ -64,7 +73,9 @@ export const GUEST_PAGES: PageType[] = [
     name: 'basket page',
     resolve: async (api) => {
       // A real basket with an Arabic name (dev also has a "foobar" test basket whose Arabic name is "foobar").
-      const visible = (await json<(Basket & { isPrivate?: boolean; nameAr?: string })[]>(api.baskets.list())).filter((b) => b.isActive && !b.isPrivate);
+      const visible = (
+        await json<(Basket & { isPrivate?: boolean; nameAr?: string })[]>(api.baskets.list())
+      ).filter((b) => b.isActive && !b.isPrivate);
       const basket = visible.find((b) => ARABIC.test(b.nameAr ?? '')) ?? visible[0];
       return basket ? { path: `/baskets/${basket.slug}`, arabicName: basket.nameAr } : null;
     },

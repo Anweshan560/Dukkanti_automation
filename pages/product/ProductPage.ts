@@ -49,7 +49,9 @@ export class ProductPage extends BasePage {
     this.addPack = this.main.getByRole('button', { name: /^Add pack of \d+/ });
     this.delivery = this.main.getByText(/^Arrives /).first();
     this.relatedHeading = this.main.getByRole('heading', { name: 'Related products', level: 2 });
-    this.relatedCards = this.relatedHeading.locator('xpath=following::*').getByRole('button', { name: /^Add .+ to cart$/ });
+    this.relatedCards = this.relatedHeading
+      .locator('xpath=following::*')
+      .getByRole('button', { name: /^Add .+ to cart$/ });
     this.ready = this.title;
   }
 

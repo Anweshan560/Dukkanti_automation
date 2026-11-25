@@ -61,7 +61,9 @@ export class CartLines {
   }
 
   async expectAmount(productName: string, amount: number): Promise<void> {
-    await expect.poll(() => this.amount(productName), { message: `Line amount of ${productName}` }).toBe(amount);
+    await expect
+      .poll(() => this.amount(productName), { message: `Line amount of ${productName}` })
+      .toBe(amount);
   }
 
   /** Product names of every line, in the order shown. */
@@ -85,7 +87,9 @@ export class OrderSummary {
       .locator('xpath=following-sibling::span[1]');
   }
 
-  async amount(label: 'Subtotal' | 'Delivery' | 'Total' | 'VAT' | 'Discount' | 'Pay on delivery fee'): Promise<number> {
+  async amount(
+    label: 'Subtotal' | 'Delivery' | 'Total' | 'VAT' | 'Discount' | 'Pay on delivery fee',
+  ): Promise<number> {
     const locator = label === 'VAT' ? this.value(/^VAT/) : this.value(label);
     return parseMoney(await readableText(locator));
   }
@@ -95,7 +99,12 @@ export class OrderSummary {
     return this.root.getByText(/^VAT \(\d+(\.\d+)?%\)$/);
   }
 
-  async expectAmounts(expected: { subTotal: number; vat: number; deliveryFee: number; total: number }): Promise<void> {
+  async expectAmounts(expected: {
+    subTotal: number;
+    vat: number;
+    deliveryFee: number;
+    total: number;
+  }): Promise<void> {
     await expect
       .poll(
         async () => ({
@@ -123,9 +132,12 @@ export class DeliveryProgress {
 
   /** "42.00 to go" (below minimum) or "120.50 to free delivery". */
   async label(): Promise<string> {
-    return ((await this.progressbar.getAttribute('aria-labelledby'))
-      ? await readableText(this.root.locator(`[id="${await this.progressbar.getAttribute('aria-labelledby')}"]`))
-      : ((await this.progressbar.getAttribute('aria-label')) ?? '')
+    return (
+      (await this.progressbar.getAttribute('aria-labelledby'))
+        ? await readableText(
+            this.root.locator(`[id="${await this.progressbar.getAttribute('aria-labelledby')}"]`),
+          )
+        : ((await this.progressbar.getAttribute('aria-label')) ?? '')
     ).trim();
   }
 

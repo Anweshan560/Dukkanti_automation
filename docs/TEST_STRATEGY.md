@@ -22,24 +22,24 @@ Where it runs: **API** = `*.api.spec.ts` (fast, no browser), **UI** = Playwright
 
 ## 1. What is already automated
 
-| Area                        | UI  | API | Notes                                                                                                       |
-| --------------------------- | --- | --- | ----------------------------------------------------------------------------------------------------------- |
-| Framework, `/info`          | ✓   | ✓   | Store settings checked before every run (`store.setup.ts`)                                                  |
-| Sign in / out, guest gating | ✓   | ✓   | OTP happy and wrong paths, token rules, 401/403, gated pages                                                |
-| Catalog and search          | ✓   | ✓   | Typeahead, filters, sort, paging, infinite scroll, lookups                                                  |
-| Home page                   | ✓   | ✓   | All sections, header, i18n, a11y (axe), performance, SEO, links, data quality, deal pricing in cart, visual |
-| Product page                | ✓   | ✓   | Price, deal pack, stepper, related, breadcrumb, share, Arabic slug, 404                                     |
-| Cart and coupons            | ✓   | ✓   | Lines, totals at every threshold, drawer, deal lines, quick adds, coupons, invalid input, permissions       |
-| Checkout                    | ✓   | ✓   | COD and Stripe (good, declined, empty card), minimum order, address picker, double submit, server failure   |
-| Same-day cut-off            | ✓   | ✓   | `deliveryDay.serial.spec.ts`: API promise vs Dubai time; "Today"/"Tomorrow" and countdown with a frozen clock |
-| Orders                      | ✓   | ✓   | Pending / Past tabs, end of list, detail amounts, WhatsApp, Order again (replace / add), privacy, paging     |
-| Account                     | ✓   | ✓   | Profile, addresses (incl. "Discard unsaved changes?"), wishlist, My coupons                                 |
-| Deals, baskets, forms, static | ✓ | ✓   | Deal and basket pages, basket Buy / Customize as a customer, contact / business / sell / request forms, policy pages, 404 |
-| Pay page (WhatsApp link)    | ✓   | ✓   | `tests/payment`: pay / paid / can't pay / not found states, Stripe Checkout with good and declined cards, one Stripe page per order, no personal data, old pay links redirect |
-| Security                    |     | ✓   | Forged tokens, prices and totals sent by the shopper ignored, quantity cap, protected profile fields, address and order privacy (needs `CUSTOMER2_*`), site and API headers (`tests/security`) |
-| API contract                |     | ✓   | `tests/contract`: responses checked against the OpenAPI spec (`/v1/api-json`), endpoint coverage, auth marks |
-| Every page (sprint 9)       | ✓   |     | `tests/sweep`: axe, JS errors and failed loads, broken links, 390 px, Arabic, LCP/CLS; dialogs: focus, axe, Escape |
-| Screenshots                 | ✓   |     | Home sections, 8 guest page types, cart / checkout / account (opt-in `npm run test:visual`, personal data masked) |
+| Area                          | UI  | API | Notes                                                                                                                                                                                          |
+| ----------------------------- | --- | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework, `/info`            | ✓   | ✓   | Store settings checked before every run (`store.setup.ts`)                                                                                                                                     |
+| Sign in / out, guest gating   | ✓   | ✓   | OTP happy and wrong paths, token rules, 401/403, gated pages                                                                                                                                   |
+| Catalog and search            | ✓   | ✓   | Typeahead, filters, sort, paging, infinite scroll, lookups                                                                                                                                     |
+| Home page                     | ✓   | ✓   | All sections, header, i18n, a11y (axe), performance, SEO, links, data quality, deal pricing in cart, visual                                                                                    |
+| Product page                  | ✓   | ✓   | Price, deal pack, stepper, related, breadcrumb, share, Arabic slug, 404                                                                                                                        |
+| Cart and coupons              | ✓   | ✓   | Lines, totals at every threshold, drawer, deal lines, quick adds, coupons, invalid input, permissions                                                                                          |
+| Checkout                      | ✓   | ✓   | COD and Stripe (good, declined, empty card), minimum order, address picker, double submit, server failure                                                                                      |
+| Same-day cut-off              | ✓   | ✓   | `deliveryDay.serial.spec.ts`: API promise vs Dubai time; "Today"/"Tomorrow" and countdown with a frozen clock                                                                                  |
+| Orders                        | ✓   | ✓   | Pending / Past tabs, end of list, detail amounts, WhatsApp, Order again (replace / add), privacy, paging                                                                                       |
+| Account                       | ✓   | ✓   | Profile, addresses (incl. "Discard unsaved changes?"), wishlist, My coupons                                                                                                                    |
+| Deals, baskets, forms, static | ✓   | ✓   | Deal and basket pages, basket Buy / Customize as a customer, contact / business / sell / request forms, policy pages, 404                                                                      |
+| Pay page (WhatsApp link)      | ✓   | ✓   | `tests/payment`: pay / paid / can't pay / not found states, Stripe Checkout with good and declined cards, one Stripe page per order, no personal data, old pay links redirect                  |
+| Security                      |     | ✓   | Forged tokens, prices and totals sent by the shopper ignored, quantity cap, protected profile fields, address and order privacy (needs `CUSTOMER2_*`), site and API headers (`tests/security`) |
+| API contract                  |     | ✓   | `tests/contract`: responses checked against the OpenAPI spec (`/v1/api-json`), endpoint coverage, auth marks                                                                                   |
+| Every page (sprint 9)         | ✓   |     | `tests/sweep`: axe, JS errors and failed loads, broken links, 390 px, Arabic, LCP/CLS; dialogs: focus, axe, Escape                                                                             |
+| Screenshots                   | ✓   |     | Home sections, 8 guest page types, cart / checkout / account (opt-in `npm run test:visual`, personal data masked)                                                                              |
 
 Written 2026-11-17, updated 2026-11-18. Everything in the sprint plan is now automated. Real bugs found are listed
 in `known-bugs.json` (`npm run known-bugs`). Next: run the suite on every PR and nightly (CI), see section 6.
@@ -149,8 +149,8 @@ These make the automated tests more fragile than they need to be:
    and endpoints that need a token (e.g. `/suppliers`, `/zoho/sync/*`) are not marked as such. Anyone generating
    a client from the spec gets wrong types. `tests/contract` tracks this.
 10. **The store notice and the delivery promise can disagree:** on 2026-11-18 the notice said "Deliveries will be
-   paused and will resume on Sunday", while `/info` and `/cart` still promised delivery the next day (Thursday).
-   The notice is free text the backend does not know about; ask whether a pause should move `deliveryEstimate`.
+    paused and will resume on Sunday", while `/info` and `/cart` still promised delivery the next day (Thursday).
+    The notice is free text the backend does not know about; ask whether a pause should move `deliveryEstimate`.
 
 ## 6. Suggested next sprints
 

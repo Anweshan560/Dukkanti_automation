@@ -23,34 +23,56 @@ const business = () => ({
 });
 
 test.describe('Contact form API', { tag: ['@content', '@forms', '@api'] }, () => {
-  test('an empty message is refused with 400 naming the name, email and message', { tag: '@negative' }, async ({ api }) => {
-    // The page requires an email; the API does not. The phone number is optional in both.
-    knownBug('contact-email-optional-in-api');
-    const response = await retryOn429(() => api.forms.contact({}));
-    expect(response.status()).toBe(400);
-    const message = await errorMessage(response);
-    for (const field of ['fullName', 'email', 'message']) expect(message).toContain(field);
-  });
+  test(
+    'an empty message is refused with 400 naming the name, email and message',
+    { tag: '@negative' },
+    async ({ api }) => {
+      // The page requires an email; the API does not. The phone number is optional in both.
+      knownBug('contact-email-optional-in-api');
+      const response = await retryOn429(() => api.forms.contact({}));
+      expect(response.status()).toBe(400);
+      const message = await errorMessage(response);
+      for (const field of ['fullName', 'email', 'message']) expect(message).toContain(field);
+    },
+  );
 
-  test('a bad email, a phone made of letters, a name that is not text and an empty message are all refused', { tag: '@negative' }, async ({ api }) => {
-    const response = await retryOn429(() =>
-      api.forms.raw('POST', '/contact', { fullName: 12345, email: 'not-an-email', phoneNumber: 'call me maybe', message: '' }),
-    );
-    expect(response.status()).toBe(400);
-    const message = await errorMessage(response);
-    expect.soft(message, 'email is not checked').toMatch(/email/i);
-    expect.soft(message, 'the phone number is not checked').toMatch(/phone/i);
-    expect.soft(message, 'the empty message is not refused').toMatch(/message/);
-  });
+  test(
+    'a bad email, a phone made of letters, a name that is not text and an empty message are all refused',
+    { tag: '@negative' },
+    async ({ api }) => {
+      const response = await retryOn429(() =>
+        api.forms.raw('POST', '/contact', {
+          fullName: 12345,
+          email: 'not-an-email',
+          phoneNumber: 'call me maybe',
+          message: '',
+        }),
+      );
+      expect(response.status()).toBe(400);
+      const message = await errorMessage(response);
+      expect.soft(message, 'email is not checked').toMatch(/email/i);
+      expect.soft(message, 'the phone number is not checked').toMatch(/phone/i);
+      expect.soft(message, 'the empty message is not refused').toMatch(/message/);
+    },
+  );
 
   // Also the happy path: a complete message is accepted.
-  test('a complete message is accepted, also with text that looks like code or SQL and very long text', { tag: '@security' }, async ({ api }) => {
-    const hostile = Object.values(HOSTILE_STRINGS).join(' | ');
-    const response = await retryOn429(() =>
-      api.forms.contact(buildContactMessage({ fullName: `${HOSTILE_STRINGS.unicode} ${qaName('x')}`, message: `Automated test. ${hostile} ${'x'.repeat(5_000)}` })),
-    );
-    expect(response.status(), await errorMessage(response)).toBe(201);
-  });
+  test(
+    'a complete message is accepted, also with text that looks like code or SQL and very long text',
+    { tag: '@security' },
+    async ({ api }) => {
+      const hostile = Object.values(HOSTILE_STRINGS).join(' | ');
+      const response = await retryOn429(() =>
+        api.forms.contact(
+          buildContactMessage({
+            fullName: `${HOSTILE_STRINGS.unicode} ${qaName('x')}`,
+            message: `Automated test. ${hostile} ${'x'.repeat(5_000)}`,
+          }),
+        ),
+      );
+      expect(response.status(), await errorMessage(response)).toBe(201);
+    },
+  );
 });
 
 test.describe('Business inquiry API', { tag: ['@content', '@forms', '@api'] }, () => {
@@ -59,12 +81,16 @@ test.describe('Business inquiry API', { tag: ['@content', '@forms', '@api'] }, (
     expect(response.status(), await errorMessage(response)).toBe(201);
   });
 
-  test('an empty inquiry is refused with 400 naming the required fields', { tag: '@negative' }, async ({ api }) => {
-    const response = await retryOn429(() => api.forms.business({}));
-    expect(response.status()).toBe(400);
-    const message = await errorMessage(response);
-    for (const field of ['fullName', 'businessName', 'email']) expect(message).toContain(field);
-    // The phone number message is worded for people: "Enter a valid phone number".
-    expect(message).toMatch(/phone/i);
-  });
+  test(
+    'an empty inquiry is refused with 400 naming the required fields',
+    { tag: '@negative' },
+    async ({ api }) => {
+      const response = await retryOn429(() => api.forms.business({}));
+      expect(response.status()).toBe(400);
+      const message = await errorMessage(response);
+      for (const field of ['fullName', 'businessName', 'email']) expect(message).toContain(field);
+      // The phone number message is worded for people: "Enter a valid phone number".
+      expect(message).toMatch(/phone/i);
+    },
+  );
 });

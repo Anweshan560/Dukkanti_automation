@@ -10,7 +10,16 @@ import { expect, test } from '../../fixtures/test';
 import { GUEST_PAGES, resolveOrSkip } from './pageTypes';
 import { settle, volatileContent } from './visualMasks';
 
-const SHOWN = ['all products', 'category listing', 'product page', 'baskets', 'deals', 'contact', 'sell on Dukkanti', 'page not found'];
+const SHOWN = [
+  'all products',
+  'category listing',
+  'product page',
+  'baskets',
+  'deals',
+  'contact',
+  'sell on Dukkanti',
+  'page not found',
+];
 
 test.describe('Page layouts as a guest', { tag: ['@visual', '@nonfunctional'] }, () => {
   for (const type of GUEST_PAGES.filter((t) => SHOWN.includes(t.name))) {
@@ -22,9 +31,15 @@ test.describe('Page layouts as a guest', { tag: ['@visual', '@nonfunctional'] },
       // The product picked for "product page" can change with the catalogue: hide its name and origin.
       const productDetails =
         type.name === 'product page'
-          ? [main.getByRole('heading', { level: 1 }), main.getByRole('navigation', { name: /^breadcrumb$/i }), main.getByText('From').locator('xpath=..')]
+          ? [
+              main.getByRole('heading', { level: 1 }),
+              main.getByRole('navigation', { name: /^breadcrumb$/i }),
+              main.getByText('From').locator('xpath=..'),
+            ]
           : [];
-      await expect(page).toHaveScreenshot(`${type.name.replace(/\W+/g, '-')}.png`, { mask: [...volatileContent(page), ...productDetails] });
+      await expect(page).toHaveScreenshot(`${type.name.replace(/\W+/g, '-')}.png`, {
+        mask: [...volatileContent(page), ...productDetails],
+      });
     });
   }
 });

@@ -47,7 +47,9 @@ export async function purchasableProducts(api: Api, count: number, minPrice = 0)
   const page = await json<Page<Product>>(api.products.list({ limit: 100 }));
   const found = page.data.filter((p) => p.inStock && !p.promotion && p.price >= minPrice);
   if (found.length < count) {
-    throw new Error(`Needed ${count} in-stock products without a deal (price >= ${minPrice}), found ${found.length}.`);
+    throw new Error(
+      `Needed ${count} in-stock products without a deal (price >= ${minPrice}), found ${found.length}.`,
+    );
   }
   return found.slice(0, count);
 }
@@ -56,7 +58,10 @@ export async function purchasableProducts(api: Api, count: number, minPrice = 0)
  * A product and a quantity whose subtotal lands exactly on `amount`, for boundary tests (e.g. exactly the
  * minimum order). Skips the test when no product price divides the amount.
  */
-export async function quantityForExactly(api: Api, amount: number): Promise<{ product: Product; quantity: number }> {
+export async function quantityForExactly(
+  api: Api,
+  amount: number,
+): Promise<{ product: Product; quantity: number }> {
   const page = await json<Page<Product>>(api.products.list({ limit: 200 }));
   const product = page.data.find((p) => {
     if (!p.inStock || p.promotion || p.price <= 0) return false;
@@ -90,7 +95,10 @@ export async function outOfStockProduct(api: Api): Promise<Product> {
   const response = await api.products.getBySlug(env.testData.outOfStockSlug);
   test.skip(!response.ok(), `The out-of-stock test product "${env.testData.outOfStockSlug}" was not found`);
   const product = (await response.json()) as Product;
-  test.skip(product.inStock, `"${product.name}" is back in stock: ask the store owner to set it out of stock again`);
+  test.skip(
+    product.inStock,
+    `"${product.name}" is back in stock: ask the store owner to set it out of stock again`,
+  );
   return product;
 }
 

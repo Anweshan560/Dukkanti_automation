@@ -12,13 +12,17 @@ export function volatileContent(page: Page): Locator[] {
   const main = page.getByRole('main');
   return [
     main.getByRole('img'),
-    main.locator('a[href^="/products/"]:not([href^="/products/categories/"]):not([href^="/products/countries/"]):not([href^="/products/brands/"])'),
+    main.locator(
+      'a[href^="/products/"]:not([href^="/products/categories/"]):not([href^="/products/countries/"]):not([href^="/products/brands/"])',
+    ),
     main.locator('span, p').filter({ hasText: MONEY }),
     main.getByRole('region', { name: /^(Store update|تحديث المتجر)$/ }),
     // Header cart button and the floating "View cart" button.
     page.getByRole('button', { name: /^Cart/ }),
     // Delivery days and dates move every day ("Tomorrow · 1 item", "Arrives Tomorrow, Nov 19").
-    main.getByText(/\b(Today|Tomorrow|Arrives|Order within)\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}\b/),
+    main.getByText(
+      /\b(Today|Tomorrow|Arrives|Order within)\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}\b/,
+    ),
     page.getByRole('banner').getByRole('button', { name: /^Hello|Account/ }),
     // The free-delivery bar under the header follows the cart.
     page.getByRole('banner').getByRole('progressbar'),

@@ -35,7 +35,10 @@ const shownBaskets = async (api: Api): Promise<Basket[]> =>
   (await json<Basket[]>(api.baskets.list())).filter((b) => b.isActive && !b.isPrivate);
 
 /** The basket's fixed products as the API has them now; deleted ones are left out. */
-async function basketProducts(api: Api, basket: Basket): Promise<{ inStock: Product[]; notBuyable: string[] }> {
+async function basketProducts(
+  api: Api,
+  basket: Basket,
+): Promise<{ inStock: Product[]; notBuyable: string[] }> {
   const inStock: Product[] = [];
   const notBuyable: string[] = [];
   for (const id of basket.filters?.productIds ?? []) {
@@ -49,12 +52,18 @@ async function basketProducts(api: Api, basket: Basket): Promise<{ inStock: Prod
 
 /** A Buy basket with a fixed product list, preferring one with (or without) products that cannot be bought. */
 async function buyableBasket(api: Api, withUnbuyable?: boolean) {
-  for (const basket of (await shownBaskets(api)).filter((b) => b.showAddAll && b.filters?.productIds?.length)) {
+  for (const basket of (await shownBaskets(api)).filter(
+    (b) => b.showAddAll && b.filters?.productIds?.length,
+  )) {
     const products = await basketProducts(api, basket);
     if (!products.inStock.length) continue;
-    if (withUnbuyable === undefined || withUnbuyable === products.notBuyable.length > 0) return { basket, ...products };
+    if (withUnbuyable === undefined || withUnbuyable === products.notBuyable.length > 0)
+      return { basket, ...products };
   }
-  test.skip(true, `No "Buy" basket with a fixed product list${withUnbuyable ? ' that holds an out-of-stock or deleted product' : ''}`);
+  test.skip(
+    true,
+    `No "Buy" basket with a fixed product list${withUnbuyable ? ' that holds an out-of-stock or deleted product' : ''}`,
+  );
   throw new Error('unreachable');
 }
 
@@ -84,22 +93,35 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
   test('"Buy" is offered on exactly the baskets set up for it', async ({ api, page }) => {
     const baskets = await shownBaskets(api);
     await openBaskets(page);
-    await expect(page.getByRole('main').getByRole('button', { name: 'Buy', exact: true })).toHaveCount(baskets.filter((b) => b.showAddAll).length);
+    await expect(page.getByRole('main').getByRole('button', { name: 'Buy', exact: true })).toHaveCount(
+      baskets.filter((b) => b.showAddAll).length,
+    );
   });
 
-  test('"Buy" adds every product of the basket once and says how many', { tag: '@smoke' }, async ({ api, customerApi, page }) => {
-    const { basket, inStock } = await buyableBasket(api, false);
-    await openBaskets(page);
-    const sent = await buy(page, basket);
+  test(
+    '"Buy" adds every product of the basket once and says how many',
+    { tag: '@smoke' },
+    async ({ api, customerApi, page }) => {
+      const { basket, inStock } = await buyableBasket(api, false);
+      await openBaskets(page);
+      const sent = await buy(page, basket);
 
-    expect(sent.map((i) => i.productId).sort(), 'Products sent to the cart').toEqual(inStock.map((p) => p.id).sort());
-    expect(sent.every((i) => i.quantity === 1), 'One of each').toBe(true);
-    await expect(addedDialog(page)).toHaveAccessibleName(`${inStock.length} items added to your cart`);
+      expect(sent.map((i) => i.productId).sort(), 'Products sent to the cart').toEqual(
+        inStock.map((p) => p.id).sort(),
+      );
+      expect(
+        sent.every((i) => i.quantity === 1),
+        'One of each',
+      ).toBe(true);
+      await expect(addedDialog(page)).toHaveAccessibleName(`${inStock.length} items added to your cart`);
 
-    const cart = await customerApi.cart.current();
-    expect(cart.items.map((i) => i.product.id).sort(), 'The cart holds the basket').toEqual(inStock.map((p) => p.id).sort());
-    expect(cart.items.every((i) => i.quantity === 1)).toBe(true);
-  });
+      const cart = await customerApi.cart.current();
+      expect(cart.items.map((i) => i.product.id).sort(), 'The cart holds the basket').toEqual(
+        inStock.map((p) => p.id).sort(),
+      );
+      expect(cart.items.every((i) => i.quantity === 1)).toBe(true);
+    },
+  );
 
   test('"Go to cart" in the dialog opens the cart with the basket in it', async ({ api, page, cartPage }) => {
     const { basket, inStock } = await buyableBasket(api);
@@ -115,12 +137,18 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
     const { basket, inStock, notBuyable } = await buyableBasket(api, true);
     await openBaskets(page);
     const sent = await buy(page, basket);
-    expect(sent.map((i) => i.productId).sort(), `Left out: ${notBuyable.join(', ')}`).toEqual(inStock.map((p) => p.id).sort());
+    expect(sent.map((i) => i.productId).sort(), `Left out: ${notBuyable.join(', ')}`).toEqual(
+      inStock.map((p) => p.id).sort(),
+    );
     await expect(addedDialog(page)).toHaveAccessibleName(`${inStock.length} items added to your cart`);
     expect((await customerApi.cart.current()).items).toHaveLength(inStock.length);
   });
 
-  test('buying the same basket twice doubles the quantities instead of repeating the lines', async ({ api, customerApi, page }) => {
+  test('buying the same basket twice doubles the quantities instead of repeating the lines', async ({
+    api,
+    customerApi,
+    page,
+  }) => {
     const { basket, inStock } = await buyableBasket(api);
     await openBaskets(page);
     await buy(page, basket);
@@ -132,13 +160,18 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
 
     const cart = await customerApi.cart.current();
     expect(cart.items).toHaveLength(inStock.length);
-    expect(cart.items.map((i) => i.quantity), 'Every line at quantity 2').toEqual(inStock.map(() => 2));
+    expect(
+      cart.items.map((i) => i.quantity),
+      'Every line at quantity 2',
+    ).toEqual(inStock.map(() => 2));
   });
 
   test('"Buy" keeps what was already in the cart', async ({ api, customerApi, page }) => {
     const { basket, inStock } = await buyableBasket(api);
     const ids = new Set(inStock.map((p) => p.id));
-    const extra = (await json<{ data: Product[] }>(api.products.list({ limit: 50 }))).data.find((p) => p.inStock && !ids.has(p.id));
+    const extra = (await json<{ data: Product[] }>(api.products.list({ limit: 50 }))).data.find(
+      (p) => p.inStock && !ids.has(p.id),
+    );
     test.skip(!extra, 'No in-stock product outside the basket');
     await customerApi.cart.seed([{ productId: extra!.id, quantity: 2 }]);
 
@@ -146,22 +179,40 @@ test.describe('Buying a basket', { tag: ['@content', '@cart', '@baskets'] }, () 
     await buy(page, basket);
     await expect(addedDialog(page)).toBeVisible();
     const cart = await customerApi.cart.current();
-    expect(cart.items.find((i) => i.product.id === extra!.id)?.quantity, 'The earlier line is untouched').toBe(2);
+    expect(
+      cart.items.find((i) => i.product.id === extra!.id)?.quantity,
+      'The earlier line is untouched',
+    ).toBe(2);
     expect(cart.items).toHaveLength(inStock.length + 1);
   });
 
-  test('"Customize" opens the basket page, where a single product can be added', async ({ api, customerApi, page }) => {
+  test('"Customize" opens the basket page, where a single product can be added', async ({
+    api,
+    customerApi,
+    page,
+  }) => {
     const { basket, inStock } = await buyableBasket(api);
     await openBaskets(page);
-    await page.getByRole('main').locator(`a[href="/baskets/${basket.slug}"]`).filter({ hasText: /^Customize$/ }).click();
+    await page
+      .getByRole('main')
+      .locator(`a[href="/baskets/${basket.slug}"]`)
+      .filter({ hasText: /^Customize$/ })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/baskets/${basket.slug}$`));
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(basket.name);
 
     const product = inStock.find((p) => !p.promotion) ?? inStock[0];
     const added = waitForApi(page, 'POST', '/cart/add');
-    await page.getByRole('main').getByRole('button', { name: `Add ${product.name} to cart`, exact: true }).first().click();
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: `Add ${product.name} to cart`, exact: true })
+      .first()
+      .click();
     await added;
     const cart = await customerApi.cart.current();
-    expect(cart.items.map((i) => i.product.id), 'Only the chosen product is in the cart').toEqual([product.id]);
+    expect(
+      cart.items.map((i) => i.product.id),
+      'Only the chosen product is in the cart',
+    ).toEqual([product.id]);
   });
 });

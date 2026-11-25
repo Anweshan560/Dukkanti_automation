@@ -206,7 +206,10 @@ test.describe('Current user API', { tag: '@auth' }, () => {
     const claims = JSON.parse(Buffer.from(payload, 'base64url').toString()) as Record<string, unknown>;
     const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
     return [
-      ['the user id changed but the old signature kept', [header, encode({ ...claims, id: MISSING_ID }), signature].join('.')],
+      [
+        'the user id changed but the old signature kept',
+        [header, encode({ ...claims, id: MISSING_ID }), signature].join('.'),
+      ],
       ['the role changed to admin', [header, encode({ ...claims, role: 'admin' }), signature].join('.')],
       ['the expiry moved forward', [header, encode({ ...claims, exp: 4102444800 }), signature].join('.')],
       ['the signature removed', [header, payload, ''].join('.')],
@@ -214,12 +217,18 @@ test.describe('Current user API', { tag: '@auth' }, () => {
     ];
   };
 
-  test('should respond 401 to a real token that was tampered with', { tag: '@security' }, async ({ request, customerToken }) => {
-    for (const [label, token] of forgedTokens(customerToken)) {
-      const response = await request.get(`${env.apiUrl}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
-      expect(response.status(), `A token with ${label} was accepted`).toBe(401);
-    }
-  });
+  test(
+    'should respond 401 to a real token that was tampered with',
+    { tag: '@security' },
+    async ({ request, customerToken }) => {
+      for (const [label, token] of forgedTokens(customerToken)) {
+        const response = await request.get(`${env.apiUrl}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        expect(response.status(), `A token with ${label} was accepted`).toBe(401);
+      }
+    },
+  );
 
   test('should respond 401 when the token is sent with the wrong scheme', async ({
     request,

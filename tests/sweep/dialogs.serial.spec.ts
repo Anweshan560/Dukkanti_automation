@@ -20,7 +20,11 @@ test.describe('Dialogs for a customer', { tag: ['@sweep', '@a11y', '@nonfunction
     await customerApi.cart.clear();
   });
 
-  async function fillCart(api: import('../../api').Api, customerApi: import('../../api').Api, minOrder: number) {
+  async function fillCart(
+    api: import('../../api').Api,
+    customerApi: import('../../api').Api,
+    minOrder: number,
+  ) {
     const { product, quantity } = await quantityForExactly(api, minOrder);
     await customerApi.cart.seed([{ productId: product.id, quantity: quantity + 1 }]);
   }
@@ -31,23 +35,35 @@ test.describe('Dialogs for a customer', { tag: ['@sweep', '@a11y', '@nonfunction
     // Until the session has loaded, the header is the guest one and the cart button opens sign-in instead.
     await expect(homePage.header.accountButton).toBeVisible();
     const trigger = homePage.header.cartButton;
-    await checkDialog(page, 'cart drawer', () => trigger.click(), page.getByRole('dialog', { name: 'Your cart' }), trigger);
+    await checkDialog(
+      page,
+      'cart drawer',
+      () => trigger.click(),
+      page.getByRole('dialog', { name: 'Your cart' }),
+      trigger,
+    );
   });
 
-  test('tapping the cart while the page is still loading opens the cart, not sign-in', { tag: '@states' }, async ({ api, customerApi, storeInfo, page, homePage, signInDialog }) => {
-    knownBug('signed-in-header-starts-as-guest');
-    await fillCart(api, customerApi, storeInfo.minOrderAmount);
-    // A slow connection: the customer's profile takes 3 s to arrive.
-    await page.route(/\/v1\/users\/me$/, async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 3_000));
-      await route.continue();
-    });
-    await homePage.open();
-    await homePage.header.cartButton.click();
-    await expect(page.getByRole('dialog', { name: 'Your cart' }).or(signInDialog.phoneStep).first()).toBeVisible();
-    await expect(signInDialog.phoneStep, 'A signed-in customer was asked to sign in').toBeHidden();
-    await expect(page.getByRole('dialog', { name: 'Your cart' })).toBeVisible();
-  });
+  test(
+    'tapping the cart while the page is still loading opens the cart, not sign-in',
+    { tag: '@states' },
+    async ({ api, customerApi, storeInfo, page, homePage, signInDialog }) => {
+      knownBug('signed-in-header-starts-as-guest');
+      await fillCart(api, customerApi, storeInfo.minOrderAmount);
+      // A slow connection: the customer's profile takes 3 s to arrive.
+      await page.route(/\/v1\/users\/me$/, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+        await route.continue();
+      });
+      await homePage.open();
+      await homePage.header.cartButton.click();
+      await expect(
+        page.getByRole('dialog', { name: 'Your cart' }).or(signInDialog.phoneStep).first(),
+      ).toBeVisible();
+      await expect(signInDialog.phoneStep, 'A signed-in customer was asked to sign in').toBeHidden();
+      await expect(page.getByRole('dialog', { name: 'Your cart' })).toBeVisible();
+    },
+  );
 
   test('the account menu', async ({ page, homePage }) => {
     await homePage.open();
@@ -59,14 +75,26 @@ test.describe('Dialogs for a customer', { tag: ['@sweep', '@a11y', '@nonfunction
     await homePage.open();
     const header = homePage.header;
     // The menu item that opened it is gone once the menu closes, so the focus goes back to the account button.
-    await checkDialog(page, '"Sign out?" confirmation', () => header.chooseSignOut(), header.signOutConfirmation, header.accountButton);
+    await checkDialog(
+      page,
+      '"Sign out?" confirmation',
+      () => header.chooseSignOut(),
+      header.signOutConfirmation,
+      header.accountButton,
+    );
     await expect(header.accountButton, 'Escape on "Sign out?" must not sign the customer out').toBeVisible();
   });
 
   test('the add-address form', async ({ page }) => {
     const addresses = new AddressesPage(page);
     await addresses.open();
-    await checkDialog(page, 'address form', () => addresses.addNew.click(), addresses.dialog.root, addresses.addNew);
+    await checkDialog(
+      page,
+      'address form',
+      () => addresses.addNew.click(),
+      addresses.dialog.root,
+      addresses.addNew,
+    );
   });
 
   test('the "Order again" choice', async ({ customerApi, page }) => {
@@ -74,14 +102,38 @@ test.describe('Dialogs for a customer', { tag: ['@sweep', '@a11y', '@nonfunction
     test.skip(!order, 'The test customer has no orders');
     const detail = new OrderDetailPage(page);
     await detail.openOrder(order.id);
-    await checkDialog(page, '"Order again" dialog', () => detail.orderAgain.click(), detail.orderAgainDialog, detail.orderAgain);
+    await checkDialog(
+      page,
+      '"Order again" dialog',
+      () => detail.orderAgain.click(),
+      detail.orderAgainDialog,
+      detail.orderAgain,
+    );
   });
 
-  test('the checkout address picker and coupon list', async ({ api, customerApi, storeInfo, page, checkoutPage }) => {
+  test('the checkout address picker and coupon list', async ({
+    api,
+    customerApi,
+    storeInfo,
+    page,
+    checkoutPage,
+  }) => {
     await fillCart(api, customerApi, storeInfo.minOrderAmount);
     await checkoutPage.open();
     await checkoutPage.waitUntilReady();
-    await checkDialog(page, 'address picker', () => checkoutPage.deliverTo.click(), checkoutPage.addressPicker, checkoutPage.deliverTo);
-    await checkDialog(page, 'coupon list', () => checkoutPage.viewCoupons.click(), page.getByRole('dialog', { name: 'My coupons' }), checkoutPage.viewCoupons);
+    await checkDialog(
+      page,
+      'address picker',
+      () => checkoutPage.deliverTo.click(),
+      checkoutPage.addressPicker,
+      checkoutPage.deliverTo,
+    );
+    await checkDialog(
+      page,
+      'coupon list',
+      () => checkoutPage.viewCoupons.click(),
+      page.getByRole('dialog', { name: 'My coupons' }),
+      checkoutPage.viewCoupons,
+    );
   });
 });

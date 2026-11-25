@@ -14,7 +14,13 @@ type Json = Record<string, unknown>;
 
 export interface OpenApiSpec {
   openapi: string;
-  paths: Record<string, Record<string, { responses?: Record<string, { content?: Record<string, { schema?: Json }> }>; security?: unknown[] }>>;
+  paths: Record<
+    string,
+    Record<
+      string,
+      { responses?: Record<string, { content?: Record<string, { schema?: Json }> }>; security?: unknown[] }
+    >
+  >;
   components?: { schemas?: Record<string, Json> };
 }
 
@@ -31,7 +37,8 @@ function toJsonSchema(node: unknown): unknown {
   const out: Json = {};
   for (const [key, value] of Object.entries(node as Json)) {
     if (key === 'example' || key === 'examples' || key === 'nullable') continue;
-    if (key === '$ref' && typeof value === 'string') out.$ref = value.replace('#/components/schemas/', 'spec#/definitions/');
+    if (key === '$ref' && typeof value === 'string')
+      out.$ref = value.replace('#/components/schemas/', 'spec#/definitions/');
     else out[key] = toJsonSchema(value);
   }
   if ((node as Json).nullable === true) return { anyOf: [{ type: 'null' }, out] };
@@ -66,7 +73,8 @@ export class ContractChecker {
     const key = `${method.toUpperCase()} ${path} ${status}`;
     let validate = this.cache.get(key);
     if (!validate) {
-      const schema = this.operation(method, path)?.responses?.[String(status)]?.content?.['application/json']?.schema;
+      const schema = this.operation(method, path)?.responses?.[String(status)]?.content?.['application/json']
+        ?.schema;
       if (!schema) throw new Error(`The spec has no JSON response schema for ${key}`);
       validate = this.ajv.compile(toJsonSchema(schema) as Json);
       this.cache.set(key, validate);

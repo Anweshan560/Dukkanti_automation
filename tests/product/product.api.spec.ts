@@ -31,7 +31,9 @@ test.describe('Product API', { tag: ['@product', '@api'] }, () => {
       expect.soft(product.price, `${product.name}: price`).toBeGreaterThan(0);
       expect.soft(product.images?.length, `${product.name}: images`).toBeGreaterThan(0);
       if (product.compareAtPrice !== null) {
-        expect.soft(product.compareAtPrice, `${product.name}: old price must be above the price`).toBeGreaterThan(product.price);
+        expect
+          .soft(product.compareAtPrice, `${product.name}: old price must be above the price`)
+          .toBeGreaterThan(product.price);
       }
     }
   });
@@ -58,20 +60,30 @@ test.describe('Product API', { tag: ['@product', '@api'] }, () => {
 
   // The store hides out-of-stock products from listings and search (seen 2026-11-20); they stay reachable by
   // their link, e.g. from an old share or a wishlist.
-  test('an out-of-stock product opens by its link but is kept out of listings and search', { tag: '@stock' }, async ({ api }) => {
-    const product = await outOfStockProduct(api);
-    expect((await json<Product>(api.products.getById(product.id))).inStock).toBe(false);
-    const category = product.categories?.[0]?.id ?? product.category?.id;
-    const listings = [
-      { label: 'search by name', query: { searchTerm: product.name, limit: 50 } },
-      ...(category ? [{ label: `category ${category}`, query: { categories: category, limit: 200 } }] : []),
-    ];
-    for (const { label, query } of listings) {
-      const page = await json<Page<Product>>(api.products.list(query));
-      expect(page.data.map((p) => p.id), `"${product.name}" is listed in ${label}`).not.toContain(product.id);
-      expect(page.data.filter((p) => !p.inStock).map((p) => p.name), `Out-of-stock products in ${label}`).toEqual([]);
-    }
-  });
+  test(
+    'an out-of-stock product opens by its link but is kept out of listings and search',
+    { tag: '@stock' },
+    async ({ api }) => {
+      const product = await outOfStockProduct(api);
+      expect((await json<Product>(api.products.getById(product.id))).inStock).toBe(false);
+      const category = product.categories?.[0]?.id ?? product.category?.id;
+      const listings = [
+        { label: 'search by name', query: { searchTerm: product.name, limit: 50 } },
+        ...(category ? [{ label: `category ${category}`, query: { categories: category, limit: 200 } }] : []),
+      ];
+      for (const { label, query } of listings) {
+        const page = await json<Page<Product>>(api.products.list(query));
+        expect(
+          page.data.map((p) => p.id),
+          `"${product.name}" is listed in ${label}`,
+        ).not.toContain(product.id);
+        expect(
+          page.data.filter((p) => !p.inStock).map((p) => p.name),
+          `Out-of-stock products in ${label}`,
+        ).toEqual([]);
+      }
+    },
+  );
 
   test('an unknown slug answers 404 "Product not found"', { tag: '@negative' }, async ({ api }) => {
     const response = await api.products.getBySlug('this-product-does-not-exist-qa');
@@ -83,20 +95,28 @@ test.describe('Product API', { tag: ['@product', '@api'] }, () => {
     expect((await api.products.getById(MISSING_ID)).status()).toBe(404);
   });
 
-  test('a product id that is not a UUID answers 400 or 404, not 500', { tag: '@negative' }, async ({ api }) => {
-    knownBug('products-invalid-id-500');
-    expect((await api.products.getById('not-a-uuid')).status()).toBeLessThan(500);
-  });
+  test(
+    'a product id that is not a UUID answers 400 or 404, not 500',
+    { tag: '@negative' },
+    async ({ api }) => {
+      knownBug('products-invalid-id-500');
+      expect((await api.products.getById('not-a-uuid')).status()).toBeLessThan(500);
+    },
+  );
 
   test('similar products of an unknown product answer 404', { tag: '@negative' }, async ({ api }) => {
     expect((await api.products.similar(MISSING_ID)).status()).toBeGreaterThanOrEqual(400);
     expect((await api.products.similar(MISSING_ID)).status()).toBeLessThan(500);
   });
 
-  test('a slug with SQL or script in it is just not found', { tag: ['@negative', '@security'] }, async ({ api }) => {
-    for (const slug of ["x' OR '1'='1", '<script>alert(1)</script>', '../../etc/passwd']) {
-      const response = await api.products.getBySlug(slug);
-      expect(response.status(), `Slug ${slug}`).toBe(404);
-    }
-  });
+  test(
+    'a slug with SQL or script in it is just not found',
+    { tag: ['@negative', '@security'] },
+    async ({ api }) => {
+      for (const slug of ["x' OR '1'='1", '<script>alert(1)</script>', '../../etc/passwd']) {
+        const response = await api.products.getBySlug(slug);
+        expect(response.status(), `Slug ${slug}`).toBe(404);
+      }
+    },
+  );
 });

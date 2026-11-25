@@ -23,12 +23,20 @@ const success = (page: Page): Locator =>
   page
     .getByRole('region', { name: 'Notifications' })
     .getByText(/thank|sent|received|submitted|we.ll be in touch|get back/i)
-    .or(page.getByRole('main').getByText(/thank you|message (has been )?sent|we.ll (get back|be in touch)|received your|application/i))
+    .or(
+      page
+        .getByRole('main')
+        .getByText(
+          /thank you|message (has been )?sent|we.ll (get back|be in touch)|received your|application/i,
+        ),
+    )
     .first();
 
 /** True when the page marks the field as wrong: aria-invalid, or the browser's own check (required, type=email). */
 async function isInvalid(field: Locator): Promise<boolean> {
-  return field.evaluate((el) => el.getAttribute('aria-invalid') === 'true' || !(el as HTMLInputElement).checkValidity());
+  return field.evaluate(
+    (el) => el.getAttribute('aria-invalid') === 'true' || !(el as HTMLInputElement).checkValidity(),
+  );
 }
 
 async function expectInvalid(field: Locator, what: string): Promise<void> {
@@ -56,7 +64,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Contact form', { tag: ['@content', '@forms'] }, () => {
-  const field = (page: Page, name: string) => page.getByRole('main').getByRole('textbox', { name, exact: true });
+  const field = (page: Page, name: string) =>
+    page.getByRole('main').getByRole('textbox', { name, exact: true });
   const submit = (page: Page) => page.getByRole('main').getByRole('button', { name: 'Submit' });
 
   test.beforeEach(async ({ page }) => {
@@ -64,12 +73,21 @@ test.describe('Contact form', { tag: ['@content', '@forms'] }, () => {
     await expect(page.getByRole('heading', { name: 'Contact us', level: 1 })).toBeVisible();
   });
 
-  test('sending an empty form marks every required field and sends nothing', { tag: '@negative' }, async ({ page }) => {
-    expect(await submitAndCount(page, submit(page), /^\/forms\//), 'An empty contact form was sent').toBe(0);
-    for (const name of ['Name', 'Email', 'Message']) await expectInvalid(field(page, name), name);
-    // The phone number is optional.
-    expect(await isInvalid(field(page, 'Phone number')), 'The optional phone number is marked as wrong').toBe(false);
-  });
+  test(
+    'sending an empty form marks every required field and sends nothing',
+    { tag: '@negative' },
+    async ({ page }) => {
+      expect(await submitAndCount(page, submit(page), /^\/forms\//), 'An empty contact form was sent').toBe(
+        0,
+      );
+      for (const name of ['Name', 'Email', 'Message']) await expectInvalid(field(page, name), name);
+      // The phone number is optional.
+      expect(
+        await isInvalid(field(page, 'Phone number')),
+        'The optional phone number is marked as wrong',
+      ).toBe(false);
+    },
+  );
 
   test('an email without @ is stopped before sending', { tag: '@negative' }, async ({ page }) => {
     await field(page, 'Name').fill(qaName('Contact'));
@@ -96,7 +114,10 @@ test.describe('Contact form', { tag: ['@content', '@forms'] }, () => {
     await field(page, 'Email').fill(`qa.${qaSuffix()}@example.com`);
     await field(page, 'Phone number').fill(`+97150${faker.string.numeric(7)}`);
     await field(page, 'Message').fill(`Automated test, please ignore. ${HOSTILE_STRINGS.xss}`);
-    const response = page.waitForResponse((r) => r.url().endsWith('/forms/contact') && r.request().method() === 'POST', { timeout: CHECKOUT_TEST_TIMEOUT });
+    const response = page.waitForResponse(
+      (r) => r.url().endsWith('/forms/contact') && r.request().method() === 'POST',
+      { timeout: CHECKOUT_TEST_TIMEOUT },
+    );
     await submit(page).click();
     expect((await response).status()).toBe(201);
     await expect(success(page), 'No confirmation after sending the contact form').toBeVisible();
@@ -105,14 +126,18 @@ test.describe('Contact form', { tag: ['@content', '@forms'] }, () => {
 
   test('the contact details link to email, phone and WhatsApp', async ({ page }) => {
     const aside = page.getByRole('main').getByRole('complementary');
-    await expect(aside.getByRole('link', { name: 'info@dukkanti.com' })).toHaveAttribute('href', 'mailto:info@dukkanti.com');
+    await expect(aside.getByRole('link', { name: 'info@dukkanti.com' })).toHaveAttribute(
+      'href',
+      'mailto:info@dukkanti.com',
+    );
     await expect(aside.locator('a[href^="tel:"]')).toHaveCount(1);
     await expect(aside.locator('a[href^="https://wa.me/"]').first()).toBeVisible();
   });
 });
 
 test.describe('Business inquiry form', { tag: ['@content', '@forms'] }, () => {
-  const field = (page: Page, name: string) => page.getByRole('main').getByRole('textbox', { name, exact: true });
+  const field = (page: Page, name: string) =>
+    page.getByRole('main').getByRole('textbox', { name, exact: true });
   const submit = (page: Page) => page.getByRole('main').getByRole('button', { name: 'Submit' });
 
   test.beforeEach(async ({ page }) => {
@@ -120,10 +145,15 @@ test.describe('Business inquiry form', { tag: ['@content', '@forms'] }, () => {
     await expect(page.getByRole('heading', { name: 'Business inquiry', level: 1 })).toBeVisible();
   });
 
-  test('sending an empty form marks the required fields and sends nothing', { tag: '@negative' }, async ({ page }) => {
-    expect(await submitAndCount(page, submit(page), /^\/forms\//)).toBe(0);
-    for (const name of ['Company name', 'Contact name', 'Email', 'Phone number']) await expectInvalid(field(page, name), name);
-  });
+  test(
+    'sending an empty form marks the required fields and sends nothing',
+    { tag: '@negative' },
+    async ({ page }) => {
+      expect(await submitAndCount(page, submit(page), /^\/forms\//)).toBe(0);
+      for (const name of ['Company name', 'Contact name', 'Email', 'Phone number'])
+        await expectInvalid(field(page, name), name);
+    },
+  );
 
   test('a complete inquiry is sent and confirmed', async ({ page }) => {
     knownBug('business-form-field-mismatch');
@@ -133,7 +163,10 @@ test.describe('Business inquiry form', { tag: ['@content', '@forms'] }, () => {
     await field(page, 'Email').fill(`qa.${qaSuffix()}@example.com`);
     await field(page, 'Phone number').fill(`+97150${faker.string.numeric(7)}`);
     await field(page, 'Message').fill('Automated test, please ignore.');
-    const response = page.waitForResponse((r) => /\/forms\//.test(r.url()) && r.request().method() === 'POST', { timeout: CHECKOUT_TEST_TIMEOUT });
+    const response = page.waitForResponse(
+      (r) => /\/forms\//.test(r.url()) && r.request().method() === 'POST',
+      { timeout: CHECKOUT_TEST_TIMEOUT },
+    );
     await submit(page).click();
     expect((await response).status(), 'The website form and the API disagree on the field names').toBe(201);
     await expect(success(page)).toBeVisible();
@@ -141,21 +174,38 @@ test.describe('Business inquiry form', { tag: ['@content', '@forms'] }, () => {
 });
 
 test.describe('Sell on Dukkanti form', { tag: ['@content', '@forms'] }, () => {
-  const field = (page: Page, name: string) => page.getByRole('main').getByRole('textbox', { name, exact: true });
+  const field = (page: Page, name: string) =>
+    page.getByRole('main').getByRole('textbox', { name, exact: true });
   const submit = (page: Page) => page.getByRole('main').getByRole('button', { name: 'Submit application' });
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/sell');
-    await expect(page.getByRole('heading', { name: 'Grow your business with Dukkanti', level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Grow your business with Dukkanti', level: 1 }),
+    ).toBeVisible();
   });
 
-  test('sending an empty application marks the required fields and sends nothing', { tag: '@negative' }, async ({ page }) => {
-    expect(await submitAndCount(page, submit(page), /^\/forms\//)).toBe(0);
-    for (const name of ['Business name', 'Contact person', 'Email', 'Phone number', 'City', 'Describe your products']) {
-      await expectInvalid(field(page, name), name);
-    }
-    expect(await isInvalid(field(page, 'Instagram handle (optional)')), 'An optional field is marked as wrong').toBe(false);
-  });
+  test(
+    'sending an empty application marks the required fields and sends nothing',
+    { tag: '@negative' },
+    async ({ page }) => {
+      expect(await submitAndCount(page, submit(page), /^\/forms\//)).toBe(0);
+      for (const name of [
+        'Business name',
+        'Contact person',
+        'Email',
+        'Phone number',
+        'City',
+        'Describe your products',
+      ]) {
+        await expectInvalid(field(page, name), name);
+      }
+      expect(
+        await isInvalid(field(page, 'Instagram handle (optional)')),
+        'An optional field is marked as wrong',
+      ).toBe(false);
+    },
+  );
 
   test('an email without @ is stopped before sending', { tag: '@negative' }, async ({ page }) => {
     await field(page, 'Business name').fill(qaName('Shop'));
@@ -193,19 +243,28 @@ test.describe('Request an item form (guest)', { tag: ['@content', '@forms'] }, (
 
   test('an empty request is stopped and adds nothing to a cart', { tag: '@negative' }, async ({ page }) => {
     const main = page.getByRole('main');
-    expect(await submitAndCount(page, main.getByRole('button', { name: 'Add request to cart' }), /^\/cart\//)).toBe(0);
+    expect(
+      await submitAndCount(page, main.getByRole('button', { name: 'Add request to cart' }), /^\/cart\//),
+    ).toBe(0);
     const signIn = page.getByRole('dialog', { name: 'Sign in or create an account' });
     // Either the form is checked first or the guest is asked to sign in first; both stop the request.
-    if (!(await signIn.isVisible())) await expectInvalid(main.getByRole('textbox', { name: 'Item name' }), 'Item name');
+    if (!(await signIn.isVisible()))
+      await expectInvalid(main.getByRole('textbox', { name: 'Item name' }), 'Item name');
   });
 
-  test('a complete request from a guest asks them to sign in instead of adding it', { tag: ['@states', '@security'] }, async ({ page, signInDialog }) => {
-    const main = page.getByRole('main');
-    await main.getByRole('textbox', { name: 'Item name' }).fill(qaName('Nabulsi cheese'));
-    await main.getByRole('combobox', { name: 'Country of origin' }).click();
-    await page.getByRole('option').first().click();
-    await main.getByRole('radio', { name: '10–49' }).check();
-    expect(await submitAndCount(page, main.getByRole('button', { name: 'Add request to cart' }), /^\/cart\//)).toBe(0);
-    await signInDialog.expectOpen();
-  });
+  test(
+    'a complete request from a guest asks them to sign in instead of adding it',
+    { tag: ['@states', '@security'] },
+    async ({ page, signInDialog }) => {
+      const main = page.getByRole('main');
+      await main.getByRole('textbox', { name: 'Item name' }).fill(qaName('Nabulsi cheese'));
+      await main.getByRole('combobox', { name: 'Country of origin' }).click();
+      await page.getByRole('option').first().click();
+      await main.getByRole('radio', { name: '10–49' }).check();
+      expect(
+        await submitAndCount(page, main.getByRole('button', { name: 'Add request to cart' }), /^\/cart\//),
+      ).toBe(0);
+      await signInDialog.expectOpen();
+    },
+  );
 });

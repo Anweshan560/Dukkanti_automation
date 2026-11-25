@@ -31,7 +31,8 @@ test.describe('Store info API', { tag: '@info' }, () => {
       );
       // After the same-day cut-off there is nothing to order by today, so orderBy is null.
       const { orderBy } = info.deliveryEstimate;
-      if (orderBy !== null) expect(Number.isNaN(Date.parse(orderBy)), 'deliveryEstimate.orderBy is a date or null').toBe(false);
+      if (orderBy !== null)
+        expect(Number.isNaN(Date.parse(orderBy)), 'deliveryEstimate.orderBy is a date or null').toBe(false);
     });
   });
 });

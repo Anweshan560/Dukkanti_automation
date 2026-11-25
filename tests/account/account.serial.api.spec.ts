@@ -33,24 +33,32 @@ test.describe('Profile API', { tag: ['@account', '@api'] }, () => {
     const response = await customerApi.users.updateProfile(profile);
     expect(response.ok(), await errorMessage(response)).toBe(true);
     const me = await json<User>(customerApi.users.me());
-    expect(me).toMatchObject({ firstName: profile.firstName, lastName: profile.lastName, email: profile.email });
+    expect(me).toMatchObject({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+    });
   });
 
-  test('the phone number, role and test flag cannot be changed through the profile', { tag: '@security' }, async ({ customerApi }) => {
-    const response = await customerApi.users.raw('PATCH', '/profile', {
-      ...buildCustomer(),
-      phoneNumber: '+971500000001',
-      role: 'admin',
-      isTest: true,
-      id: MISSING_ID,
-    });
-    expect(response.status(), 'Unknown fields should be ignored or refused, never crash').toBeLessThan(500);
-    const me = await json<User>(customerApi.users.me());
-    expect(me.phoneNumber).toBe(original.phoneNumber);
-    expect(me.role).toBe(original.role);
-    expect(me.isTest).toBe(original.isTest);
-    expect(me.id).toBe(original.id);
-  });
+  test(
+    'the phone number, role and test flag cannot be changed through the profile',
+    { tag: '@security' },
+    async ({ customerApi }) => {
+      const response = await customerApi.users.raw('PATCH', '/profile', {
+        ...buildCustomer(),
+        phoneNumber: '+971500000001',
+        role: 'admin',
+        isTest: true,
+        id: MISSING_ID,
+      });
+      expect(response.status(), 'Unknown fields should be ignored or refused, never crash').toBeLessThan(500);
+      const me = await json<User>(customerApi.users.me());
+      expect(me.phoneNumber).toBe(original.phoneNumber);
+      expect(me.role).toBe(original.role);
+      expect(me.isTest).toBe(original.isTest);
+      expect(me.id).toBe(original.id);
+    },
+  );
 
   for (const [label, change, field] of [
     ['an email without @', { email: 'not-an-email' }, 'email'],
@@ -58,13 +66,17 @@ test.describe('Profile API', { tag: ['@account', '@api'] }, () => {
     ['an empty first name', { firstName: '' }, 'firstName'],
     ['a first name that is not text', { firstName: 12345 }, 'firstName'],
   ] as const) {
-    test(`${label} is refused with 400 and the profile is unchanged`, { tag: '@negative' }, async ({ customerApi }) => {
-      const response = await customerApi.users.raw('PATCH', '/profile', { ...buildCustomer(), ...change });
-      expect(response.status(), `PATCH /users/profile with ${JSON.stringify(change)}`).toBe(400);
-      expect(await errorMessage(response)).toContain(field);
-      const me = await json<User>(customerApi.users.me());
-      expect(me.firstName).toBe(original.firstName);
-    });
+    test(
+      `${label} is refused with 400 and the profile is unchanged`,
+      { tag: '@negative' },
+      async ({ customerApi }) => {
+        const response = await customerApi.users.raw('PATCH', '/profile', { ...buildCustomer(), ...change });
+        expect(response.status(), `PATCH /users/profile with ${JSON.stringify(change)}`).toBe(400);
+        expect(await errorMessage(response)).toContain(field);
+        const me = await json<User>(customerApi.users.me());
+        expect(me.firstName).toBe(original.firstName);
+      },
+    );
   }
 
   test('an empty profile update changes nothing', { tag: '@negative' }, async ({ customerApi }) => {
@@ -73,19 +85,35 @@ test.describe('Profile API', { tag: ['@account', '@api'] }, () => {
     // PATCH only changes the fields it is sent, so an empty body is a valid no-op (200) or a 400.
     expect([200, 400]).toContain(response.status());
     const after = await json<Record<string, unknown>>(customerApi.users.me());
-    for (const field of ['firstName', 'lastName', 'email', 'phoneNumber']) expect(after[field], field).toEqual(before[field]);
+    for (const field of ['firstName', 'lastName', 'email', 'phoneNumber'])
+      expect(after[field], field).toEqual(before[field]);
   });
 
-  test('a 300-character name is refused or cut, never a server error', { tag: '@negative' }, async ({ customerApi }) => {
-    const response = await customerApi.users.updateProfile({ ...buildCustomer(), firstName: 'A'.repeat(300) });
-    expect(response.status()).toBeLessThan(500);
-  });
+  test(
+    'a 300-character name is refused or cut, never a server error',
+    { tag: '@negative' },
+    async ({ customerApi }) => {
+      const response = await customerApi.users.updateProfile({
+        ...buildCustomer(),
+        firstName: 'A'.repeat(300),
+      });
+      expect(response.status()).toBeLessThan(500);
+    },
+  );
 
-  test('a name that looks like code is stored as plain text', { tag: '@security' }, async ({ customerApi }) => {
-    const response = await customerApi.users.updateProfile({ ...buildCustomer(), firstName: HOSTILE_STRINGS.xss });
-    expect(response.status()).toBeLessThan(500);
-    if (response.ok()) expect((await json<User>(customerApi.users.me())).firstName).toBe(HOSTILE_STRINGS.xss);
-  });
+  test(
+    'a name that looks like code is stored as plain text',
+    { tag: '@security' },
+    async ({ customerApi }) => {
+      const response = await customerApi.users.updateProfile({
+        ...buildCustomer(),
+        firstName: HOSTILE_STRINGS.xss,
+      });
+      expect(response.status()).toBeLessThan(500);
+      if (response.ok())
+        expect((await json<User>(customerApi.users.me())).firstName).toBe(HOSTILE_STRINGS.xss);
+    },
+  );
 
   test('a guest cannot read or change a profile', { tag: '@security' }, async ({ api }) => {
     expect((await api.users.me()).status()).toBe(401);
@@ -132,7 +160,12 @@ test.describe('Address API', { tag: ['@account', '@api'] }, () => {
     const address = await json<Address>(customerApi.users.createAddress(buildAddress()));
     created.push(address.id);
     const nickName = qaName('Office');
-    const response = await customerApi.users.updateAddress(address.id, { ...buildAddress(), nickName, city: 'Ajman', unitNumber: '42' });
+    const response = await customerApi.users.updateAddress(address.id, {
+      ...buildAddress(),
+      nickName,
+      city: 'Ajman',
+      unitNumber: '42',
+    });
     expect(response.ok(), await errorMessage(response)).toBe(true);
     const saved = (await json<Address[]>(customerApi.users.listAddresses())).find((a) => a.id === address.id);
     expect(saved).toMatchObject({ nickName, city: 'Ajman', unitNumber: '42' });
@@ -142,7 +175,9 @@ test.describe('Address API', { tag: ['@account', '@api'] }, () => {
     const address = await json<Address>(customerApi.users.createAddress(buildAddress()));
     const response = await customerApi.users.deleteAddress(address.id);
     expect(response.ok()).toBe(true);
-    expect((await json<Address[]>(customerApi.users.listAddresses())).map((a) => a.id)).not.toContain(address.id);
+    expect((await json<Address[]>(customerApi.users.listAddresses())).map((a) => a.id)).not.toContain(
+      address.id,
+    );
   });
 
   test('a city outside the delivery area is refused', { tag: '@negative' }, async ({ customerApi }) => {
@@ -165,32 +200,53 @@ test.describe('Address API', { tag: ['@account', '@api'] }, () => {
     });
   }
 
-  test('an address without its required fields is refused with 400 naming them', { tag: '@negative' }, async ({ customerApi }) => {
-    const response = await customerApi.users.raw('POST', '/address', { nickName: qaName('Empty') });
-    expect(response.status()).toBe(400);
-    const message = await errorMessage(response);
-    for (const field of ['city', 'area', 'buildingName', 'unitNumber', 'addressType']) expect(message).toContain(field);
-  });
+  test(
+    'an address without its required fields is refused with 400 naming them',
+    { tag: '@negative' },
+    async ({ customerApi }) => {
+      const response = await customerApi.users.raw('POST', '/address', { nickName: qaName('Empty') });
+      expect(response.status()).toBe(400);
+      const message = await errorMessage(response);
+      for (const field of ['city', 'area', 'buildingName', 'unitNumber', 'addressType'])
+        expect(message).toContain(field);
+    },
+  );
 
-  test('changing or deleting an address that does not exist answers 404', { tag: '@negative' }, async ({ customerApi }) => {
-    expect((await customerApi.users.updateAddress(MISSING_ID, buildAddress())).status()).toBe(404);
-    expect((await customerApi.users.deleteAddress(MISSING_ID)).status()).toBe(404);
-  });
+  test(
+    'changing or deleting an address that does not exist answers 404',
+    { tag: '@negative' },
+    async ({ customerApi }) => {
+      expect((await customerApi.users.updateAddress(MISSING_ID, buildAddress())).status()).toBe(404);
+      expect((await customerApi.users.deleteAddress(MISSING_ID)).status()).toBe(404);
+    },
+  );
 
-  test('an address id that is not a UUID is refused without a server error', { tag: '@negative' }, async ({ customerApi }) => {
-    knownBug('address-invalid-id-500');
-    expect((await customerApi.users.updateAddress('not-a-uuid', buildAddress())).status()).toBeLessThan(500);
-    expect((await customerApi.users.deleteAddress('not-a-uuid')).status()).toBeLessThan(500);
-  });
+  test(
+    'an address id that is not a UUID is refused without a server error',
+    { tag: '@negative' },
+    async ({ customerApi }) => {
+      knownBug('address-invalid-id-500');
+      expect((await customerApi.users.updateAddress('not-a-uuid', buildAddress())).status()).toBeLessThan(
+        500,
+      );
+      expect((await customerApi.users.deleteAddress('not-a-uuid')).status()).toBeLessThan(500);
+    },
+  );
 
-  test('address text that looks like code is stored as plain text', { tag: '@security' }, async ({ customerApi }) => {
-    const response = await customerApi.users.createAddress(buildAddress({ street: HOSTILE_STRINGS.xss, buildingName: HOSTILE_STRINGS.sql }));
-    expect(response.status()).toBe(201);
-    const address = (await response.json()) as Address;
-    created.push(address.id);
-    expect(address.street).toBe(HOSTILE_STRINGS.xss);
-    expect(address.buildingName).toBe(HOSTILE_STRINGS.sql);
-  });
+  test(
+    'address text that looks like code is stored as plain text',
+    { tag: '@security' },
+    async ({ customerApi }) => {
+      const response = await customerApi.users.createAddress(
+        buildAddress({ street: HOSTILE_STRINGS.xss, buildingName: HOSTILE_STRINGS.sql }),
+      );
+      expect(response.status()).toBe(201);
+      const address = (await response.json()) as Address;
+      created.push(address.id);
+      expect(address.street).toBe(HOSTILE_STRINGS.xss);
+      expect(address.buildingName).toBe(HOSTILE_STRINGS.sql);
+    },
+  );
 
   test('a guest cannot list, add, change or delete addresses', { tag: '@security' }, async ({ api }) => {
     for (const response of await Promise.all([
@@ -203,29 +259,41 @@ test.describe('Address API', { tag: ['@account', '@api'] }, () => {
     }
   });
 
-  test("another customer cannot see, change, delete or deliver to this customer's address", { tag: '@security' }, async ({ customerApi, playwright }) => {
-    test.skip(!env.customer2, 'Set CUSTOMER2_PHONE and CUSTOMER2_OTP in .env to test access between customers.');
-    const mine = await json<Address>(customerApi.users.createAddress(buildAddress()));
-    created.push(mine.id);
-    const context = await playwright.request.newContext();
-    try {
-      const { token } = await buildApi(context).users.loginAs(env.customer2!);
-      const other = buildApi(context, token);
-      const theirs = await json<Address[]>(other.users.listAddresses());
-      expect(theirs.map((a) => a.id), 'The other customer can list this address').not.toContain(mine.id);
-      expect([403, 404]).toContain((await other.users.updateAddress(mine.id, { street: 'changed by someone else' })).status());
-      expect([403, 404]).toContain((await other.users.deleteAddress(mine.id)).status());
-      // No checkout call here (rate limited): the cart is empty, so a checkout could not prove anything.
-    } finally {
-      await context.dispose();
-    }
-    const after = (await json<Address[]>(customerApi.users.listAddresses())).find((a) => a.id === mine.id);
-    expect(after, 'The address was deleted by another customer').toBeDefined();
-    expect(after!.street).toBe(mine.street);
-  });
+  test(
+    "another customer cannot see, change, delete or deliver to this customer's address",
+    { tag: '@security' },
+    async ({ customerApi, playwright }) => {
+      test.skip(
+        !env.customer2,
+        'Set CUSTOMER2_PHONE and CUSTOMER2_OTP in .env to test access between customers.',
+      );
+      const mine = await json<Address>(customerApi.users.createAddress(buildAddress()));
+      created.push(mine.id);
+      const context = await playwright.request.newContext();
+      try {
+        const { token } = await buildApi(context).users.loginAs(env.customer2!);
+        const other = buildApi(context, token);
+        const theirs = await json<Address[]>(other.users.listAddresses());
+        expect(
+          theirs.map((a) => a.id),
+          'The other customer can list this address',
+        ).not.toContain(mine.id);
+        expect([403, 404]).toContain(
+          (await other.users.updateAddress(mine.id, { street: 'changed by someone else' })).status(),
+        );
+        expect([403, 404]).toContain((await other.users.deleteAddress(mine.id)).status());
+        // No checkout call here (rate limited): the cart is empty, so a checkout could not prove anything.
+      } finally {
+        await context.dispose();
+      }
+      const after = (await json<Address[]>(customerApi.users.listAddresses())).find((a) => a.id === mine.id);
+      expect(after, 'The address was deleted by another customer').toBeDefined();
+      expect(after!.street).toBe(mine.street);
+    },
+  );
 });
 
-test.describe('Wishlist API',{ tag: ['@account', '@wishlist', '@api'] }, () => {
+test.describe('Wishlist API', { tag: ['@account', '@wishlist', '@api'] }, () => {
   test.beforeEach(async ({ customerApi }) => {
     await json(customerApi.wishlist.clear());
   });
@@ -258,7 +326,9 @@ test.describe('Wishlist API',{ tag: ['@account', '@wishlist', '@api'] }, () => {
     await json(customerApi.wishlist.add(first.id));
     await json(customerApi.wishlist.add(second.id));
     const list = await customerApi.wishlist.current();
-    expect((await customerApi.wishlist.remove(list.items.find((i) => i.product.id === first.id)?.id ?? '')).ok()).toBe(true);
+    expect(
+      (await customerApi.wishlist.remove(list.items.find((i) => i.product.id === first.id)?.id ?? '')).ok(),
+    ).toBe(true);
     expect((await customerApi.wishlist.current()).items.map((i) => i.product.id)).toEqual([second.id]);
     expect((await customerApi.wishlist.clear()).ok()).toBe(true);
     expect((await customerApi.wishlist.current()).items).toEqual([]);
@@ -269,12 +339,16 @@ test.describe('Wishlist API',{ tag: ['@account', '@wishlist', '@api'] }, () => {
     expect((await customerApi.wishlist.current()).items).toEqual([]);
   });
 
-  test('a product id that is not a UUID, or none at all, is refused without a server error', { tag: '@negative' }, async ({ customerApi }) => {
-    knownBug('wishlist-invalid-id-500');
-    expect((await customerApi.wishlist.add('not-a-uuid')).status()).toBeLessThan(500);
-    const empty = await customerApi.wishlist.raw('POST', '/add', {});
-    expect(empty.status()).toBe(400);
-  });
+  test(
+    'a product id that is not a UUID, or none at all, is refused without a server error',
+    { tag: '@negative' },
+    async ({ customerApi }) => {
+      knownBug('wishlist-invalid-id-500');
+      expect((await customerApi.wishlist.add('not-a-uuid')).status()).toBeLessThan(500);
+      const empty = await customerApi.wishlist.raw('POST', '/add', {});
+      expect(empty.status()).toBe(400);
+    },
+  );
 
   test('removing an entry that does not exist answers 404', { tag: '@negative' }, async ({ customerApi }) => {
     knownBug('wishlist-remove-missing-200');
@@ -282,7 +356,12 @@ test.describe('Wishlist API',{ tag: ['@account', '@wishlist', '@api'] }, () => {
   });
 
   test('a guest cannot read or change a wishlist', { tag: '@security' }, async ({ api }) => {
-    for (const response of await Promise.all([api.wishlist.getWishlist(), api.wishlist.add(MISSING_ID), api.wishlist.remove(MISSING_ID), api.wishlist.clear()])) {
+    for (const response of await Promise.all([
+      api.wishlist.getWishlist(),
+      api.wishlist.add(MISSING_ID),
+      api.wishlist.remove(MISSING_ID),
+      api.wishlist.clear(),
+    ])) {
       expect(response.status(), response.url()).toBe(401);
     }
   });

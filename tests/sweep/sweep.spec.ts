@@ -43,7 +43,9 @@ for (const type of GUEST_PAGES) {
 
     test('loads without JavaScript errors or failed loads', async ({ api, page }) => {
       const { path } = await resolveOrSkip(type, api);
-      const watch = watchPageErrors(page, { ignoreUrl: (url) => isNotFoundPage(path) && new URL(url).pathname === path });
+      const watch = watchPageErrors(page, {
+        ignoreUrl: (url) => isNotFoundPage(path) && new URL(url).pathname === path,
+      });
       const response = await page.goto(path);
       await scrollThroughPage(page);
       await page.waitForLoadState('networkidle');
@@ -57,7 +59,9 @@ for (const type of GUEST_PAGES) {
       const { path } = await resolveOrSkip(type, api);
       await page.goto(path);
       await scrollThroughPage(page);
-      const broken = (await brokenLinksAndImages(page, checkedUrls)).filter((line) => !(isNotFoundPage(path) && line.includes(path)));
+      const broken = (await brokenLinksAndImages(page, checkedUrls)).filter(
+        (line) => !(isNotFoundPage(path) && line.includes(path)),
+      );
       expect(broken, broken.join('\n')).toEqual([]);
     });
 
@@ -81,17 +85,25 @@ for (const type of GUEST_PAGES) {
       await expect(html).toHaveAttribute('dir', 'rtl');
       // Brand names are often Latin in Arabic too ("Loyal"), so a brand listing's heading may be.
       if (type.name !== 'brand listing') {
-        await expect(page.getByRole('main').getByRole('heading', { level: 1 }).first(), 'The heading is in Arabic').toHaveText(ARABIC);
+        await expect(
+          page.getByRole('main').getByRole('heading', { level: 1 }).first(),
+          'The heading is in Arabic',
+        ).toHaveText(ARABIC);
       }
       // A deal page's heading is the deal type ("Buy 2 get 1 free"); the deal's own name is shown under it.
-      if (arabicName) await expect(page.getByRole('main'), 'The page shows the Arabic name from the API').toContainText(arabicName);
+      if (arabicName)
+        await expect(page.getByRole('main'), 'The page shows the Arabic name from the API').toContainText(
+          arabicName,
+        );
       // Every visible named control in the header is in Arabic.
       const banner = page.getByRole('banner');
       const names = await banner
         .getByRole('link')
         .or(banner.getByRole('button'))
         .evaluateAll((els) =>
-          els.filter((el) => (el as HTMLElement).offsetParent !== null).map((el) => (el.getAttribute('aria-label') ?? el.textContent ?? '').trim()),
+          els
+            .filter((el) => (el as HTMLElement).offsetParent !== null)
+            .map((el) => (el.getAttribute('aria-label') ?? el.textContent ?? '').trim()),
         );
       const english = names.filter((name) => name && !ARABIC.test(name) && !ALLOWED_LATIN.test(name));
       expect(english, `Header controls still in English on ${arabicPath(path)}`).toEqual([]);
@@ -99,22 +111,31 @@ for (const type of GUEST_PAGES) {
   });
 }
 
-test.describe('Site-wide accessibility issues already reported', { tag: ['@sweep', '@a11y', '@nonfunctional'] }, () => {
-  // Left out of the per-page axe checks above and checked here once, so their fix is noticed.
-  // Issues on signed-in pages have their own test in sweep.serial.spec.ts.
-  for (const issue of KNOWN_SITE_AXE_ISSUES.filter((i) => !i.shownOn.customer)) {
-    test(`${issue.rule} on ${issue.shownOn.path} (${issue.bug})`, async ({ page }) => {
-      knownBug(issue.bug);
-      await page.goto(issue.shownOn.path);
-      await scrollThroughPage(page);
-      expect(await seriousAxeViolations(page, { onlyKnown: issue.bug })).toEqual([]);
-    });
-  }
-});
+test.describe(
+  'Site-wide accessibility issues already reported',
+  { tag: ['@sweep', '@a11y', '@nonfunctional'] },
+  () => {
+    // Left out of the per-page axe checks above and checked here once, so their fix is noticed.
+    // Issues on signed-in pages have their own test in sweep.serial.spec.ts.
+    for (const issue of KNOWN_SITE_AXE_ISSUES.filter((i) => !i.shownOn.customer)) {
+      test(`${issue.rule} on ${issue.shownOn.path} (${issue.bug})`, async ({ page }) => {
+        knownBug(issue.bug);
+        await page.goto(issue.shownOn.path);
+        await scrollThroughPage(page);
+        expect(await seriousAxeViolations(page, { onlyKnown: issue.bug })).toEqual([]);
+      });
+    }
+  },
+);
 
 test.describe('Speed of the busiest pages', { tag: ['@sweep', '@nonfunctional', '@performance'] }, () => {
-  for (const type of GUEST_PAGES.filter((t) => ['all products', 'category listing', 'product page'].includes(t.name))) {
-    test(`${type.name}: largest contentful paint under 2.5 s and layout shift under 0.1`, async ({ api, page }) => {
+  for (const type of GUEST_PAGES.filter((t) =>
+    ['all products', 'category listing', 'product page'].includes(t.name),
+  )) {
+    test(`${type.name}: largest contentful paint under 2.5 s and layout shift under 0.1`, async ({
+      api,
+      page,
+    }) => {
       const { path } = await resolveOrSkip(type, api);
       await observeWebVitals(page);
       await page.goto(path);

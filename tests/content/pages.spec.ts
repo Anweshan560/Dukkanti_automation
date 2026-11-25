@@ -30,9 +30,14 @@ test.describe('Policy pages', { tag: ['@content'] }, () => {
 
   test('the "Help & policies" menu links every policy page to the others', async ({ page }) => {
     await page.goto('/delivery');
-    const menu = page.getByRole('main').getByRole('heading', { name: 'Help & policies' }).locator('xpath=ancestor::*[self::nav or self::aside][1]');
+    const menu = page
+      .getByRole('main')
+      .getByRole('heading', { name: 'Help & policies' })
+      .locator('xpath=ancestor::*[self::nav or self::aside][1]');
     for (const [path] of POLICIES.filter(([p]) => p !== '/about')) {
-      await expect(menu.locator(`a[href="${path}"]`), `${path} is missing from the policy menu`).toHaveCount(1);
+      await expect(menu.locator(`a[href="${path}"]`), `${path} is missing from the policy menu`).toHaveCount(
+        1,
+      );
     }
     await clickToNavigate(page, menu.locator('a[href="/privacy"]'), /\/privacy$/);
   });

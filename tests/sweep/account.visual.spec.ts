@@ -81,20 +81,26 @@ test.describe('Page layouts when signed in', { tag: ['@visual', '@nonfunctional'
     const orders = new OrdersPage(page);
     await orders.open();
     await settle(page);
-    await expect(page).toHaveScreenshot('orders.png', { mask: [...volatileContent(page), ...accountCard(page), orders.pendingPanel] });
+    await expect(page).toHaveScreenshot('orders.png', {
+      mask: [...volatileContent(page), ...accountCard(page), orders.pendingPanel],
+    });
   });
 
   test('addresses', async ({ page }) => {
     const addresses = new AddressesPage(page);
     await addresses.open();
     await settle(page);
-    await expect(page).toHaveScreenshot('addresses.png', { mask: [...volatileContent(page), ...accountCard(page), addresses.cards] });
+    await expect(page).toHaveScreenshot('addresses.png', {
+      mask: [...volatileContent(page), ...accountCard(page), addresses.cards],
+    });
   });
 
   test('my coupons', async ({ page }) => {
     const coupons = new CouponsPage(page);
     await coupons.open();
     await settle(page);
-    await expect(page).toHaveScreenshot('coupons.png', { mask: [...volatileContent(page), ...accountCard(page), coupons.main.getByRole('list')] });
+    await expect(page).toHaveScreenshot('coupons.png', {
+      mask: [...volatileContent(page), ...accountCard(page), coupons.main.getByRole('list')],
+    });
   });
 });
