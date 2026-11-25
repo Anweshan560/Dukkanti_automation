@@ -35,6 +35,12 @@ setup('guest session: get past Cloudflare Access and save it', async ({ context,
           'Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET (service token), or a fresh CF_AUTHORIZATION cookie, in .env.',
       );
     }
+    if (await page.getByText('Performing security verification').isVisible()) {
+      throw new Error(
+        'Cloudflare\'s bot check ("Verify you are human") blocked this machine. It challenges data-centre IPs ' +
+          'such as GitHub runners. Ask the site owner for a WAF skip rule for the test traffic, or run CI on a self-hosted runner.',
+      );
+    }
     await expect(page.getByRole('banner').getByRole('button', { name: 'Sign in' })).toBeVisible();
   });
 
