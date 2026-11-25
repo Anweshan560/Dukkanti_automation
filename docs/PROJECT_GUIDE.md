@@ -77,6 +77,10 @@ UI (`tests/auth/auth.spec.ts`; also product, home, baskets and checkout specs)
 - Basket "Buy" puts the basket in a guest's cart ("N items added to your cart").
 - Checkout: a guest with items must verify their phone before address and payment open; with an empty cart
   there is no order form.
+- On sign-in the guest cart moves into the account (`tests/cart/guestCartMerge.serial.spec.ts`, customer
+  project): **smoke** — signing in from the header adds it to the cart the account already had and clears the
+  browser copy; a product in both carts ends up once with the quantities added (1 + 2 = 3); verifying the
+  phone at checkout keeps the cart and opens the delivery address.
 
 ## Permissions
 
