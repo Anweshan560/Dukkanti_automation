@@ -52,7 +52,10 @@ export abstract class BasePage {
     const hasSession = await this.page
       .evaluate(() => Boolean(localStorage.getItem('dukkanti_auth')))
       .catch(() => false);
-    if (!hasSession || (await this.header.banner.count()) === 0) return;
+    // Only the shop header has Sign in / Account. The cart and checkout steps have their own header
+    // ("Your cart" with Cart / Details / Pay), which never shows the account button.
+    const shopHeader = (await this.header.signInButton.count()) + (await this.header.accountButton.count());
+    if (!hasSession || shopHeader === 0) return;
     await expect(
       this.header.accountButton,
       'The saved customer session was not picked up: the header never showed the account button',
