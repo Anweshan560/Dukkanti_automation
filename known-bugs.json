@@ -11,6 +11,10 @@
     "issue": "",
     "description": "Searching for a country name ranks loose text matches first: \"Syria\" returns 8 syrup products from the UAE and Lebanon before any of the 187 Syrian products"
   },
+  "products-list-fails-silently": {
+    "issue": "",
+    "description": "NEEDS PRODUCT CONFIRMATION. When GET /products fails (500 or no connection) the product list page shows its heading and filters and an empty list, with no message or retry, so an outage looks like an empty shop (seen 2026-11-26)"
+  },
   "threshold-empty-cart-message": {
     "issue": "",
     "description": "NEEDS PRODUCT CONFIRMATION. With an empty cart the threshold bar shows \"Spend AED 200, delivery's on us\" (no amount to the minimum, no progress line); the brief expects \"50 more and you're good to go\""

@@ -1,4 +1,4 @@
-import type { ApiError, LoginResponse, User } from '../../api';
+import { buildApi, json, type Api, type ApiError, type LoginResponse, type User } from '../../api';
 import { env, requireCustomer } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
 import { MISSING_ID } from '../../utils/shop';
@@ -161,6 +161,75 @@ test.describe('Login API', { tag: '@auth' }, () => {
       expect(((await response.json()) as ApiError).message).toEqual(['otp must be a string']);
     });
   });
+});
+
+test.describe('Login API: coupon code and attribution', { tag: '@auth' }, () => {
+  /** Requests a code and logs the main test customer in with these extra fields. */
+  async function loginWith(api: Api, extra: Parameters<Api['users']['login']>[0]) {
+    const customer = requireCustomer();
+    await api.users.requestOtp(customer.phone);
+    return api.users.login({ phoneNumber: customer.phone, otp: customer.otp, ...extra });
+  }
+
+  // The test customer already holds the coupon after the first run (a saved coupon cannot be removed),
+  // so this checks that it is there after signing in with it, not that this sign-in added it.
+  test('should save the coupon to the account when the customer signs in with a coupon code', async ({
+    api,
+    request,
+  }) => {
+    const code = env.testData.couponCode;
+    const response = await loginWith(api, { couponCode: code });
+    expect([200, 201]).toContain(response.status());
+    const body = (await response.json()) as LoginResponse & { campaignReward?: unknown };
+    // Only set within 10 minutes of the website's "Download the app" tap; null otherwise.
+    expect(body).toHaveProperty('campaignReward', null);
+    const saved = await json<{ coupon: { code: string } }[]>(buildApi(request, body.token).coupons.list());
+    expect(saved.map((s) => s.coupon.code)).toContain(code);
+  });
+
+  test('should still sign the customer in when the coupon code does not exist, and save nothing', async ({
+    api,
+    request,
+  }) => {
+    const response = await loginWith(api, { couponCode: 'NOPE-QA-LOGIN' });
+    expect([200, 201]).toContain(response.status());
+    const { token } = (await response.json()) as LoginResponse;
+    const saved = await json<{ coupon: { code: string } }[]>(buildApi(request, token).coupons.list());
+    expect(saved.map((s) => s.coupon.code)).not.toContain('NOPE-QA-LOGIN');
+  });
+
+  test('should accept where the visitor came from (UTM tags and ad click ids)', async ({ api }) => {
+    const response = await loginWith(api, {
+      attribution: {
+        utmSource: 'qa',
+        utmMedium: 'automated-test',
+        utmCampaign: 'qa-attribution',
+        gclid: 'qa-gclid',
+        fbclid: 'qa-fbclid',
+        landingPage: '/?utm_source=qa',
+        touchedAt: new Date().toISOString(),
+      },
+    });
+    expect([200, 201], await response.text()).toContain(response.status());
+  });
+
+  for (const [name, attribution, message] of [
+    [
+      'is text instead of an object',
+      'utm_source=qa',
+      'nested property attribution must be either object or array',
+    ],
+    ['has a number where text is expected', { utmSource: 123 }, 'attribution.utmSource must be a string'],
+  ] as const) {
+    test(`should reject the login with 400 when the attribution ${name}`, async ({ request }) => {
+      const customer = requireCustomer();
+      const response = await request.post(`${env.apiUrl}/users/login`, {
+        data: { phoneNumber: customer.phone, otp: customer.otp, attribution },
+      });
+      expect(response.status()).toBe(400);
+      expect(((await response.json()) as ApiError).message).toEqual([message]);
+    });
+  }
 });
 
 test.describe('Current user API', { tag: '@auth' }, () => {

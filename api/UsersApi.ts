@@ -31,7 +31,13 @@ export class UsersApi extends ResourceApi {
     return this.post('/request-otp', { phoneNumber });
   }
 
-  login(body: { phoneNumber?: string; otp?: string; couponCode?: string }): Promise<APIResponse> {
+  login(body: {
+    phoneNumber?: string;
+    otp?: string;
+    couponCode?: string;
+    /** Where the visitor came from (UTM tags, Google and Meta click ids); see AttributionDto in the API spec. */
+    attribution?: Record<string, string>;
+  }): Promise<APIResponse> {
     return this.post('/login', body);
   }
 
