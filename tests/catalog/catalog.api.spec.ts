@@ -326,6 +326,39 @@ test.describe('Products search and filter API', { tag: ['@catalog', '@search'] }
       for (const product of page.data) expect(product.promotion?.id, product.name).toBe(promotion.id);
     });
   });
+
+  // Used by "You may also like" and similar lists to leave out the product being looked at.
+  test('should leave out the products named in excludeProductIds and count the rest', async ({ api }) => {
+    const first = await json<Page<Product>>(api.products.list({ limit: 5, page: 1 }));
+    const [a, b] = first.data.map((p) => p.id);
+
+    const page = await test.step('GET /products?excludeProductIds=<first two ids>', () =>
+      json<Page<Product>>(api.products.list({ limit: 5, page: 1, excludeProductIds: `${a},${b}` })));
+
+    await test.step('Neither is listed, the next ones move up and the total drops by two', async () => {
+      const ids = page.data.map((p) => p.id);
+      expect(ids).not.toContain(a);
+      expect(ids).not.toContain(b);
+      expect(ids.slice(0, 3)).toEqual(first.data.slice(2, 5).map((p) => p.id));
+      expect(page.total).toBe(first.total - 2);
+    });
+  });
+
+  test('should ignore an excludeProductIds id that matches no product', async ({ api }) => {
+    const all = await json<Page<Product>>(api.products.list({ limit: 1 }));
+    const page = await json<Page<Product>>(
+      api.products.list({ limit: 1, excludeProductIds: '00000000-0000-4000-8000-000000000000' }),
+    );
+    expect(page.total).toBe(all.total);
+  });
+
+  test('should reject an excludeProductIds value that is not a product id with 400', async ({ api }) => {
+    const response = await api.products.list({ excludeProductIds: 'not-a-uuid' });
+    expect(response.status()).toBe(400);
+    expect(((await response.json()) as ApiError).message).toEqual([
+      'each value in excludeProductIds must be a UUID',
+    ]);
+  });
 });
 
 test.describe('Categories, countries, brands and promotions API', { tag: '@catalog' }, () => {

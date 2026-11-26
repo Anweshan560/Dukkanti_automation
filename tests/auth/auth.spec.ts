@@ -1,5 +1,8 @@
+import type { Page } from '@playwright/test';
 import { requireCustomer } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
+import type { SignInDialog } from '../../pages/auth/SignInDialog';
+import type { HomePage } from '../../pages/home/HomePage';
 import { waitForApi } from '../../utils/network';
 
 // Every test here starts as a guest and signs in (or fails to) by itself, so none of them touches the
@@ -235,6 +238,91 @@ test.describe('Sign in', { tag: '@auth' }, () => {
       await signInDialog.expectClosed();
       await expect(homePage.header.signInButton).toBeVisible();
     });
+  });
+
+  // The code step has no "Resend code" (checked 2026-11-26, also after 30 s): Change and Continue is the
+  // only way to get a new code.
+  test('should send a new code and sign in with it after Change and Continue', async ({
+    page,
+    homePage,
+    signInDialog,
+  }) => {
+    const customer = requireCustomer();
+
+    await test.step('Request a code, then go back with Change', async () => {
+      await homePage.open();
+      await homePage.header.clickUntil(
+        homePage.header.signInButton,
+        signInDialog.phoneStep,
+        'The sign-in dialog',
+      );
+      await signInDialog.requestCode(customer);
+      await signInDialog.changeNumberButton.click();
+      await expect(signInDialog.phoneStep).toBeVisible();
+    });
+
+    await test.step('Continue again sends a second code request', async () => {
+      // The number may or may not still be filled in; enter it again either way.
+      const again = waitForApi(page, 'POST', '/users/request-otp');
+      await signInDialog.requestCode(customer);
+      expect((await again).ok(), 'The second code request was refused').toBe(true);
+    });
+
+    await test.step('The code signs the customer in', async () => {
+      await signInDialog.enterCode(customer.otp);
+      await signInDialog.expectClosed();
+      await expect(homePage.header.accountButton).toBeVisible();
+    });
+  });
+});
+
+test.describe('Sign-in attribution', { tag: ['@auth', '@tracking'] }, () => {
+  /** Signs in through the dialog and returns the body the page sent to POST /users/login. */
+  async function signInAndReadLogin(
+    page: Page,
+    homePage: HomePage,
+    signInDialog: SignInDialog,
+  ): Promise<{ attribution?: Record<string, string> }> {
+    await homePage.header.clickUntil(
+      homePage.header.signInButton,
+      signInDialog.phoneStep,
+      'The sign-in dialog',
+    );
+    const login = page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/users/login'));
+    await signInDialog.signIn(requireCustomer());
+    return (await login).postDataJSON() as { attribution?: Record<string, string> };
+  }
+
+  test('a visitor who arrives from a tagged link has the tags sent with their sign-in', async ({
+    page,
+    homePage,
+    signInDialog,
+  }) => {
+    const landing = '/?utm_source=qa&utm_medium=automated-test&utm_campaign=qa-attribution&gclid=qa-gclid';
+    await page.goto(landing);
+    await homePage.expectLoaded();
+    // The tags are kept, so a visitor who browses on before signing in is still credited.
+    await homePage.open();
+    const body = await signInAndReadLogin(page, homePage, signInDialog);
+    expect(body.attribution).toMatchObject({
+      utmSource: 'qa',
+      utmMedium: 'automated-test',
+      utmCampaign: 'qa-attribution',
+      gclid: 'qa-gclid',
+      landingPage: landing,
+    });
+    expect(Date.parse(body.attribution?.touchedAt ?? ''), 'touchedAt is not a date').not.toBeNaN();
+  });
+
+  test('a visitor who arrives without tags sends no campaign tags with their sign-in', async ({
+    page,
+    homePage,
+    signInDialog,
+  }) => {
+    await homePage.open();
+    const body = await signInAndReadLogin(page, homePage, signInDialog);
+    for (const key of ['utmSource', 'utmCampaign', 'gclid', 'fbclid'])
+      expect(body.attribution?.[key], `${key} was sent without a tagged landing`).toBeUndefined();
   });
 });
 

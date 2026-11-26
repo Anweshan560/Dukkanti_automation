@@ -43,6 +43,8 @@ export interface ProductQuery {
   brands?: string;
   promotionId?: string;
   wishlist?: boolean;
+  /** Product ids to leave out, comma separated (the API also takes the key repeated). Each must be a UUID. */
+  excludeProductIds?: string;
 }
 
 export class ProductsApi extends ResourceApi {

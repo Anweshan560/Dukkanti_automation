@@ -97,6 +97,11 @@ also creates the account. A wrong code shows "Invalid OTP" (API: 401). Sign out 
 asks "Sign out?" (Cancel / Sign out) first. There is no logout endpoint; earlier tokens stay valid. Turnstile is not enforced on dev. The session is kept in `localStorage`
 under `dukkanti_auth`.
 
+The code step has no "Resend code"; Change and Continue sends a new one (checked 2026-11-26). A landing with UTM
+tags or ad click ids (`gclid`, `fbclid`, ...) is saved in `localStorage` (`dk_attribution`) and sent as
+`attribution` with the next `POST /users/login`. The login also takes a `couponCode` (the site never sends one): a
+real code is saved to the account's coupons, an unknown one is ignored and the sign-in still works.
+
 ## 4. Flows
 
 1. **Search** — type in header search → `GET /products?limit=5&searchTerm=` → Enter → `/products?searchTerm=`.
