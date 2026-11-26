@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), quiet: true });
 
-const read = (name: string, fallback = ''): string => (process.env[name] ?? fallback).trim();
+const read = (name: string, fallback = ''): string => process.env[name]?.trim() || fallback;
 
 export interface Credentials {
   /** Full international number, e.g. `+971501234567`. */
@@ -22,8 +22,9 @@ const credentials = (prefix: string): Credentials | undefined => {
   const raw = read(`${prefix}_PHONE`).replace(/[\s-]/g, '');
   const otp = read(`${prefix}_OTP`);
   if (!raw || !otp) return undefined;
-  // A number written without a country code gets <PREFIX>_DIAL_CODE (default: UAE).
-  const phone = raw.startsWith('+') ? raw : `${read(`${prefix}_DIAL_CODE`, '+971')}${raw}`;
+  // A number written without a country code gets <PREFIX>_DIAL_CODE, else CUSTOMER_DIAL_CODE, else UAE.
+  const fallbackDialCode = read('CUSTOMER_DIAL_CODE', '+971');
+  const phone = raw.startsWith('+') ? raw : `${read(`${prefix}_DIAL_CODE`, fallbackDialCode)}${raw}`;
   const dialCode = DIAL_CODES.find((code) => phone.startsWith(code));
   if (!dialCode) {
     throw new Error(
@@ -50,6 +51,14 @@ export const env = {
   customer2: credentials('CUSTOMER2'),
 
   stripeTestCard: read('STRIPE_TEST_CARD', '4242424242424242'),
+
+  /** Data the store owner keeps on dev for the tests (tests cannot create coupons or change stock). */
+  testData: {
+    /** A coupon that works for the test customer: 10 % off the subtotal. */
+    couponCode: read('TEST_COUPON_CODE', 'SAVE10'),
+    /** A product kept out of stock on purpose. */
+    outOfStockSlug: read('OUT_OF_STOCK_PRODUCT_SLUG', 'smart-chef-sucre-vanilline-7g'),
+  },
 
   /** Store settings the suite was written against. Checked once in tests/setup/store.setup.ts. */
   expectedStore: {

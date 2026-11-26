@@ -6,5 +6,209 @@
   "products-invalid-id-500": {
     "issue": "",
     "description": "GET /products/{id} with a non-UUID id returns 500 instead of 400/404"
+  },
+  "search-country-relevance": {
+    "issue": "",
+    "description": "Searching for a country name ranks loose text matches first: \"Syria\" returns 8 syrup products from the UAE and Lebanon before any of the 187 Syrian products"
+  },
+  "threshold-empty-cart-message": {
+    "issue": "",
+    "description": "NEEDS PRODUCT CONFIRMATION. With an empty cart the threshold bar shows \"Spend AED 200, delivery's on us\" (no amount to the minimum, no progress line); the brief expects \"50 more and you're good to go\""
+  },
+  "cart-accepts-out-of-stock": {
+    "issue": "",
+    "description": "POST /cart/add, POST /cart/add/bulk and PATCH /cart/update put an out-of-stock product (inStock: false) in the cart (201/200) with no notice, although the product page disables its button with \"Out of stock\""
+  },
+  "checkout-accepts-out-of-stock": {
+    "issue": "",
+    "description": "POST /cart/checkout places the order (201) when the cart holds an out-of-stock product (inStock: false) instead of refusing it; seen 2026-11-26 with \"Smart Chef Sucre Vanilline 7g\""
+  },
+  "home-test-content-visible": {
+    "issue": "",
+    "description": "Test data is visible to shoppers on the home page: deal cards and footer show \"TEST ...\" deals and a \"foobar\" basket"
+  },
+  "footer-shop-missing-bakery": {
+    "issue": "",
+    "description": "Footer \"Shop\" column lists 5 categories; Shop by category shows 6 (Bakery is missing from the footer)"
+  },
+  "inconsistent-label-casing": {
+    "issue": "",
+    "description": "Inconsistent label casing: deal \"BUY 1 GET 1 FREE\" is all capitals; footer mixes \"About Us\"/\"Return Policy\" with \"Contact us\"/\"Track order\""
+  },
+  "notice-conflicts-with-same-day-badge": {
+    "issue": "",
+    "description": "While the store banner says deliveries are paused, the hero still promises \"Same-day delivery across Dubai, Sharjah and Ajman\""
+  },
+  "ar-page-title-not-translated": {
+    "issue": "",
+    "description": "The Arabic home page (/ar/) keeps the English <title> \"Dukkanti | Your favorite products, delivered\""
+  },
+  "language-reset-by-home-url": {
+    "issue": "",
+    "description": "After browsing in Arabic, opening the home address \"/\" shows English and overwrites the saved PARAGLIDE_LOCALE cookie with \"en\", so later pages are English too"
+  },
+  "mobile-logo-link-unnamed": {
+    "issue": "",
+    "description": "Below 380px wide the header logo link has no accessible name: its only text (\"Dukkanti\") is hidden and the logo image has alt=\"\""
+  },
+  "seo-missing-hreflang": {
+    "issue": "",
+    "description": "The home page has no <link rel=\"alternate\" hreflang=\"en|ar\"> tags for its English and Arabic versions"
+  },
+  "home-axe-serious": {
+    "issue": "",
+    "description": "axe (WCAG 2.1 AA) serious issues: colour contrast on the inactive \"Best prices\" tab (1.57:1), grey \"Brand · Country\" lines and struck-through prices (3.29:1), deal \"Ends <date>\" (3.07:1); header cart button is named \"Cart\" but shows \"0 items 0.00\" (label-content-name-mismatch)"
+  },
+  "threshold-amount-not-announced": {
+    "issue": "",
+    "description": "The threshold bar's amount is invisible to screen readers: the button and progressbar are named \"more and you're good to go\" (the animated number is aria-hidden)"
+  },
+  "cart-fractional-quantity-500": {
+    "issue": "",
+    "description": "POST /cart/add and PATCH /cart/update with a fractional quantity (1.5) answer 500 instead of a 400 validation error"
+  },
+  "cart-malformed-product-id-500": {
+    "issue": "",
+    "description": "POST /cart/add with a productId that is not a UUID answers 500 instead of 400"
+  },
+  "cart-delete-missing-line-200": {
+    "issue": "",
+    "description": "DELETE /cart/{itemId} with an id that is not in the cart (or not a UUID) answers 200 and silently does nothing, instead of 404"
+  },
+  "special-item-price-range-not-validated": {
+    "issue": "",
+    "description": "A \"Request an item\" cart line is accepted with minPrice above maxPrice, or with a negative price, and the negative amount is subtracted from the subtotal"
+  },
+  "coupon-error-shape": {
+    "issue": "",
+    "description": "Coupon errors use { message, messageAr, status, error } instead of the API-wide { message, error, statusCode } shape"
+  },
+  "coupon-saving-rounded-per-unit": {
+    "issue": "",
+    "description": "A percentage coupon is rounded per unit and then multiplied by the quantity, so the saving drifts from the percentage of the subtotal: AUTO123 (11%) on 80 x 2.50 saves 21.60 (0.275 -> 0.27 x 80), not 22.00, and the shopper pays 207.32 instead of 206.90 (seen 2026-11-26)"
+  },
+  "cart-zero-quantity-line": {
+    "issue": "",
+    "description": "POST /cart/add with quantity 0 for a product not in the cart creates a cart line with quantity 0 (201) instead of refusing it or doing nothing"
+  },
+  "delivery-badge-wrong-count": {
+    "issue": "",
+    "description": "The badge on \"See the items in this delivery\" (cart, drawer, checkout) shows the quantity of the first line, not the number of items: lines of 30 + 1 + 1 show 30"
+  },
+  "business-form-field-mismatch": {
+    "issue": "",
+    "description": "The Business inquiry form sends companyName/contactName/phone, but POST /forms/business expects fullName/businessName/phoneNumber: every inquiry from the website fails with 400 (\"fullName should not be empty\", \"businessName should not be empty\", \"Enter a valid phone number\")"
+  },
+  "contact-phone-not-validated": {
+    "issue": "",
+    "description": "The Contact form accepts a phone number made of letters (\"call me maybe\") and sends it; no client-side check"
+  },
+  "soft-404-unknown-category": {
+    "issue": "",
+    "description": "/products/categories/<unknown> answers 200 and shows the full product list instead of a 404 (soft 404: bad for SEO and confusing for shoppers)"
+  },
+  "sitemap-500": {
+    "issue": "",
+    "description": "The sitemap named in robots.txt answers 500"
+  },
+  "checkout-double-submit-two-orders": {
+    "issue": "",
+    "description": "SERIOUS. Two POST /cart/checkout calls sent at the same moment (cash on delivery) both answer 201 and place two orders from one cart"
+  },
+  "address-city-outside-delivery-area": {
+    "issue": "",
+    "description": "POST /users/address accepts city \"Abu Dhabi\" (201) although the store only delivers to Dubai, Sharjah and Ajman"
+  },
+  "address-geopoint-not-validated": {
+    "issue": "",
+    "description": "POST /users/address accepts a geoPoint whose coordinates are text ([\"north\",\"east\"]) with 201 instead of 400"
+  },
+  "address-invalid-id-500": {
+    "issue": "",
+    "description": "PATCH and DELETE /users/address/{id} with an id that is not a UUID answer 500 instead of 400/404"
+  },
+  "wishlist-invalid-id-500": {
+    "issue": "",
+    "description": "POST /wishlist/add with a productId that is not a UUID answers 500 instead of 400"
+  },
+  "wishlist-remove-missing-200": {
+    "issue": "",
+    "description": "DELETE /wishlist/{itemId} for an entry that does not exist answers 200; DELETE /users/address/{id} answers 404 for the same case"
+  },
+  "wishlist-flag-and-filter-ignored": {
+    "issue": "",
+    "description": "For a signed-in customer with a saved product, GET /products/{id} and /products/slug/{slug} return isInWishlist: false, and GET /products?wishlist=true ignores the filter and returns every product"
+  },
+  "orders-pagination-500": {
+    "issue": "",
+    "description": "GET /orders with page=0, page=-1 or limit=-5 answers 500 instead of a 400 validation error"
+  },
+  "order-item-price-string": {
+    "issue": "",
+    "description": "GET /orders/{id} sends item prices as strings (\"2.50\") while GET /cart and the order totals send numbers"
+  },
+  "contact-email-optional-in-api": {
+    "issue": "",
+    "description": "The contact page requires an email, but POST /forms/contact accepts a message without one (an empty body only names fullName and message)"
+  },
+  "contact-name-type-unchecked": {
+    "issue": "",
+    "description": "POST /forms/contact accepts a fullName that is a number (12345) without a validation error"
+  },
+  "site-grey-text-contrast": {
+    "issue": "",
+    "description": "Colour contrast on every page: the secondary grey #8a8f8a (\"Brand · Country\" on product cards, struck-through prices, deal \"Ends …\", account and policy side-menu titles, form placeholders) is 2.9-3.3:1 on white and light green, below the 4.5:1 WCAG AA minimum"
+  },
+  "header-cart-label-mismatch": {
+    "issue": "",
+    "description": "On every page the header cart button has aria-label \"Cart\" but shows \"0 items 0.00\", so voice-control users who say what they see cannot activate it (axe label-content-name-mismatch)"
+  },
+  "ar-static-pages-not-translated": {
+    "issue": "",
+    "description": "The Arabic policy and About pages (/ar/delivery, /ar/about, ...) show English headings and text (\"Delivery Policy\", \"About Us\")"
+  },
+  "signin-dialog-focus-not-returned": {
+    "issue": "",
+    "description": "Closing the sign-in dialog with Escape leaves the keyboard focus nowhere (on the page body) instead of returning it to the button that opened it (WCAG 2.4.3)"
+  },
+  "baskets-rows-not-keyboard-scrollable": {
+    "issue": "",
+    "description": "/baskets: the product row in each basket card scrolls sideways but cannot be reached or scrolled with the keyboard (axe scrollable-region-focusable, 8 elements)"
+  },
+  "openapi-baskets-undocumented": {
+    "issue": "",
+    "description": "The OpenAPI spec (GET /v1/api-json) does not list GET /v1/baskets, which the storefront calls on /baskets and the home page"
+  },
+  "openapi-response-schemas-wrong": {
+    "issue": "",
+    "description": "The OpenAPI spec does not match real responses: nullable numbers/strings typed as \"object\" (promotion buyQuantity/getQuantity, info campaignOffer.minimumSubtotal, address googleMapsUrl, order previous*Amount, deliveryDate); cart appliedCoupons is an array but typed as one object; brand nameAr can be null; GET /orders data typed as string[]; GET /orders/{id} marks 8 fields required that are never sent (paymentIntentId, onMyWayAt, arrivedAt, isFirstOrder, specialItems, ...) and item prices come back as strings"
+  },
+  "openapi-error-responses-undocumented": {
+    "issue": "",
+    "description": "The OpenAPI spec documents only 200 for GET /v1/products/{id}; an unknown id answers 404, which is not documented"
+  },
+  "aria-label-hides-visible-text": {
+    "issue": "",
+    "description": "Signed-in pages: links and buttons whose aria-label replaces the visible text (axe label-content-name-mismatch, WCAG 2.5.3): header account button \"Account\" (shows \"Hello, <name>\"), sidebar card \"Profile\", count links \"40 Orders\" / \"0 Wishlist\" / \"3 Addresses\" (sidebar and account menu), order cards \"View order #10442\". Voice-control users cannot click them by what they see; cart drawer \"See the items in this delivery\""
+  },
+  "blocked-badge-contrast": {
+    "issue": "",
+    "description": "The red \"Blocked\" notifications badge (profile page and account menu) is #b94b4b on #fbefea, contrast 4.46:1, under the 4.5:1 minimum for small text (WCAG 1.4.3)"
+  },
+  "signed-in-header-starts-as-guest": {
+    "issue": "",
+    "description": "For the first moment after a page loads (until GET /users/me answers, ~1-2 s, longer on slow connections) a signed-in customer sees the guest header (\"Wishlist\", \"Cart\", no account button). Tapping the cart in that moment opens \"Sign in or create an account\" instead of the cart"
+  },
+  "order-tracker-a11y": {
+    "issue": "",
+    "description": "Order detail status tracker: the progress bar (role=progressbar, \"Placed\" 1 of 4) has no accessible name (axe aria-progressbar-name), and the upcoming steps \"Packed\", \"On the way\", \"Delivered\" are #8eaea2 on #1b4d3e, contrast 4:1, under 4.5:1"
+  },
+  "web-no-content-security-policy": {
+    "issue": "",
+    "description": "The storefront sends no Content-Security-Policy header (seen on /, /account and /pay on 2026-11-20). The customer's token lives in localStorage, so a CSP limiting script sources is the main guard against an injected script stealing it"
+  },
+  "api-reveals-framework": {
+    "issue": "",
+    "description": "Every API response carries \"X-Powered-By: Express\" (and \"Server: railway-hikari\"), telling attackers which framework to target. Turn it off with app.disable('x-powered-by')"
   }
 }

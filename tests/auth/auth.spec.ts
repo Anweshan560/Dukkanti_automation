@@ -239,9 +239,10 @@ test.describe('Sign in', { tag: '@auth' }, () => {
 });
 
 test.describe('Guest is asked to sign in', { tag: ['@auth', '@guest'] }, () => {
+  // Guests have a cart of their own now (kept in the browser), so only an empty /cart asks them to sign in.
+  // /checkout for a guest is covered in tests/checkout (phone step, empty cart).
   const gatedPages = [
-    { name: 'the cart', path: '/cart' },
-    { name: 'checkout', path: '/checkout' },
+    { name: 'an empty cart', path: '/cart' },
     { name: 'their profile', path: '/account' },
     { name: 'their orders', path: '/account/orders' },
     { name: 'their addresses', path: '/account/addresses' },
@@ -259,32 +260,7 @@ test.describe('Guest is asked to sign in', { tag: ['@auth', '@guest'] }, () => {
     });
   }
 
-  test(
-    'should ask a guest to sign in when they click Add to cart on a product',
-    { tag: '@smoke' },
-    async ({ page, homePage, signInDialog }) => {
-      await test.step('Open the home page as a guest', async () => {
-        await homePage.open();
-      });
-      await test.step('Click Add to cart on the first product', async () => {
-        await homePage.header.clickUntil(
-          homePage.addToCartButtons.first(),
-          signInDialog.phoneStep,
-          'The sign-in dialog',
-        );
-      });
-      await test.step('The sign-in dialog is shown and nothing was added', async () => {
-        await signInDialog.expectOpen();
-        await signInDialog.closeButton.click();
-        await expect(page.getByRole('banner').getByText('0 items')).toBeVisible();
-      });
-    },
-  );
-
-  const gatedHeaderControls = [
-    { name: 'the cart button', pick: 'cartButton' },
-    { name: 'the wishlist button', pick: 'wishlist' },
-  ] as const;
+  const gatedHeaderControls = [{ name: 'the wishlist button', pick: 'wishlist' }] as const;
 
   for (const { name, pick } of gatedHeaderControls) {
     test(`should ask a guest to sign in when they click ${name} in the header`, async ({
@@ -302,4 +278,42 @@ test.describe('Guest is asked to sign in', { tag: ['@auth', '@guest'] }, () => {
       });
     });
   }
+});
+
+test.describe('Guest cart', { tag: ['@auth', '@guest', '@cart'] }, () => {
+  test(
+    'a guest can add a product to the cart without signing in',
+    { tag: '@smoke' },
+    async ({ page, homePage, signInDialog }) => {
+      await test.step('Open the home page as a guest', async () => {
+        await homePage.open();
+        await expect(homePage.header.signInButton).toBeVisible();
+      });
+      await test.step('Click Add to cart on the first product', async () => {
+        await homePage.header.clickUntil(
+          homePage.addToCartButtons.first(),
+          homePage.header.cartButtonWithLines,
+          'The product in the header cart',
+        );
+      });
+      await test.step('No sign-in dialog, and the cart keeps the product in the browser', async () => {
+        await expect(signInDialog.anyStep).toBeHidden();
+        await expect(homePage.header.cartItemsLabel).not.toHaveText('0 items');
+        const saved = await page.evaluate(
+          () => JSON.parse(localStorage.getItem('guest_cart') ?? '[]').length,
+        );
+        expect(saved, 'Lines in the guest cart saved in localStorage').toBeGreaterThan(0);
+      });
+      await test.step('The cart is still there after a reload', async () => {
+        await page.reload();
+        await expect(homePage.header.cartButtonWithLines).toBeVisible();
+      });
+    },
+  );
+
+  test('the header cart button opens the cart drawer for a guest', async ({ homePage, signInDialog }) => {
+    await homePage.open();
+    await homePage.header.clickUntil(homePage.header.cartButton, homePage.cartDrawer.root, 'The cart drawer');
+    await expect(signInDialog.anyStep).toBeHidden();
+  });
 });

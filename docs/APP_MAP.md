@@ -27,28 +27,33 @@ Store settings exposed by `GET /v1/info` (the setup check will assert these befo
 | Customer | Everything above plus cart, wishlist, delivery location, checkout, orders, addresses, profile.      |
 | Admin    | Exists in the API (`/v1/admin/*`) but **out of scope** — no admin access.                           |
 
-A guest has **no cart**. Clicking Add to cart, Wishlist, Cart, or "Delivering to Dubai" opens the sign-in
-dialog. `/cart`, `/checkout`, `/account` and `/account/orders` also open it.
+Since 2026-11-25 a guest **has a cart**, kept in the browser (`localStorage` keys `guest_cart` and
+`guest_cart_changed_at`, no cart API calls). Add to cart, "+" on cards and basket "Buy" work without signing in,
+and the header cart button opens the cart drawer. At `/checkout` a guest with items gets an inline "Your phone
+number" step, with address and payment locked until the number is verified; with an empty cart `/checkout`
+sends them away. Wishlist (heart and header), "Delivering to Dubai", an empty `/cart`, `/account` and
+`/account/*` still open the sign-in dialog.
 
 ## 3. Pages (guest view)
 
-| Path                                                                                           | What it is                                                                                                             |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `/`                                                                                            | Home: notice banner, hero, categories, deals, countries, Featured/Best prices tabs, brands, trending, local businesses |
-| `/products`                                                                                    | All products: filters (Express delivery, category/subcategory, country, brand), sort, search. Server-rendered listing  |
-| `/products?searchTerm=tea`                                                                     | Search results                                                                                                         |
-| `/products/categories/{id}`                                                                    | Category listing with subcategory chips                                                                                |
-| `/products/countries/{id}`                                                                     | Country listing                                                                                                        |
-| `/products/brands/{id}`                                                                        | Brand listing                                                                                                          |
-| `/products/{slug}`                                                                             | Product page: gallery, Share, quantity stepper, Add to cart, promotion pack buttons, Related products                  |
-| `/categories`, `/countries`, `/brands`, `/local-businesses`                                    | Index pages, each with a search box                                                                                    |
-| `/baskets`, `/baskets/{slug}`                                                                  | Curated baskets (Buy / Share)                                                                                          |
-| `/deals`, `/deals/{slug}`                                                                      | Promotions: buy X get Y, bundle price, mix and match, percentage off, amount off                                       |
-| `/request`                                                                                     | Request an item form (name, country, brand, radio options, notes)                                                      |
-| `/contact`                                                                                     | Contact form (fullName, email, phoneNumber, message)                                                                   |
-| `/business`                                                                                    | Business inquiry form                                                                                                  |
-| `/sell`                                                                                        | Sell on Dukkanti application form                                                                                      |
-| `/delivery`, `/return`, `/refund`, `/cancellation`, `/terms`, `/privacy`, `/cookies`, `/about` | Static policy pages                                                                                                    |
+| Path                                                                                           | What it is                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                                                                            | Home: notice banner, hero, categories, deals, countries, Featured/Best prices tabs, brands, trending, local businesses                                                                                     |
+| `/products`                                                                                    | All products: filters (Express delivery, category/subcategory, country, brand), sort, search. Server-rendered listing                                                                                      |
+| `/products?searchTerm=tea`                                                                     | Search results                                                                                                                                                                                             |
+| `/products/categories/{id}`                                                                    | Category listing with subcategory chips                                                                                                                                                                    |
+| `/products/countries/{id}`                                                                     | Country listing                                                                                                                                                                                            |
+| `/products/brands/{id}`                                                                        | Brand listing                                                                                                                                                                                              |
+| `/products/{slug}`                                                                             | Product page: gallery, Share, quantity stepper, Add to cart, promotion pack buttons, Related products                                                                                                      |
+| `/pay/{orderId}` (no sign-in, noindex)                                                         | Pay page from the WhatsApp link: "Order #N" + Pay → Stripe Checkout (`?paid=1` on return), "is paid", "can't be paid online" (unpaid card checkout, `awaiting-payment`), 404 "We couldn't find this order" |
+| `/categories`, `/countries`, `/brands`, `/local-businesses`                                    | Index pages, each with a search box                                                                                                                                                                        |
+| `/baskets`, `/baskets/{slug}`                                                                  | Curated baskets (Buy / Share)                                                                                                                                                                              |
+| `/deals`, `/deals/{slug}`                                                                      | Promotions: buy X get Y, bundle price, mix and match, percentage off, amount off                                                                                                                           |
+| `/request`                                                                                     | Request an item form (name, country, brand, radio options, notes)                                                                                                                                          |
+| `/contact`                                                                                     | Contact form (fullName, email, phoneNumber, message)                                                                                                                                                       |
+| `/business`                                                                                    | Business inquiry form                                                                                                                                                                                      |
+| `/sell`                                                                                        | Sell on Dukkanti application form                                                                                                                                                                          |
+| `/delivery`, `/return`, `/refund`, `/cancellation`, `/terms`, `/privacy`, `/cookies`, `/about` | Static policy pages                                                                                                                                                                                        |
 
 ### Pages that need a signed-in customer
 
@@ -111,16 +116,16 @@ Errors are JSON: `{ message, error, statusCode }`; validation errors return `mes
 
 ### Public (no token)
 
-| Method | Path                                                                                  | Notes                                                                                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/info`                                                                               | Store settings (see section 1)                                                                                                                                                              |
-| GET    | `/products`                                                                           | `{ data, total, page, limit, totalPages }`. Params seen: `limit`, `page`, `sort` (`featured:desc`, `price:asc`), `searchTerm`, `categories`, `promotionId`, `wishlist`, `excludeProductIds` |
-| GET    | `/products/{id}`, `/products/slug/{slug}`, `/products/{id}/similar`                   | 404 `Product not found` for unknown id/slug                                                                                                                                                 |
-| GET    | `/categories`, `/countries`, `/brands` (`?localOnly=true`), `/baskets`, `/promotions` | Plain arrays                                                                                                                                                                                |
-| POST   | `/forms/contact`, `/forms/business`                                                   | 400 with field messages on empty body                                                                                                                                                       |
-| POST   | `/users/request-otp`                                                                  | `{ phoneNumber, turnstileToken? }`                                                                                                                                                          |
-| POST   | `/users/login`                                                                        | `{ phoneNumber, otp, couponCode, attribution? }`                                                                                                                                            |
-| GET    | `/payment/orders/{orderId}`, POST `/payment/orders/{orderId}/link`                    | Pay page for an order                                                                                                                                                                       |
+| Method | Path                                                                                  | Notes                                                                                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/info`                                                                               | Store settings (see section 1)                                                                                                                                                                                  |
+| GET    | `/products`                                                                           | `{ data, total, page, limit, totalPages }`. Params seen: `limit`, `page`, `sort` (`featured:desc`, `price:asc`), `searchTerm`, `categories`, `promotionId`, `wishlist`, `excludeProductIds`                     |
+| GET    | `/products/{id}`, `/products/slug/{slug}`, `/products/{id}/similar`                   | 404 `Product not found` for unknown id/slug                                                                                                                                                                     |
+| GET    | `/categories`, `/countries`, `/brands` (`?localOnly=true`), `/baskets`, `/promotions` | Plain arrays                                                                                                                                                                                                    |
+| POST   | `/forms/contact`, `/forms/business`                                                   | 400 with field messages on empty body                                                                                                                                                                           |
+| POST   | `/users/request-otp`                                                                  | `{ phoneNumber, turnstileToken? }`                                                                                                                                                                              |
+| POST   | `/users/login`                                                                        | `{ phoneNumber, otp, couponCode, attribution? }`                                                                                                                                                                |
+| GET    | `/payment/orders/{orderId}`, POST `/payment/orders/{orderId}/link`                    | Public pay page. `/link` reuses one Stripe Checkout session per order; 409 when paid or not payable (card checkouts). Old buttons `GET /payment/pay/{id}` and `/payment/cod/{id}` redirect (302) to `/pay/{id}` |
 
 ### Customer (bearer token) — 401 `Authentication token is required` without one, 401 `Invalid or expired token` with a bad one
 
@@ -133,6 +138,18 @@ Errors are JSON: `{ message, error, statusCode }`; validation errors return `mes
 | Wishlist | GET/DELETE `/wishlist`, POST `/wishlist/add`, DELETE `/wishlist/{itemId}`                                                                                                          |
 | Orders   | GET `/orders?page&limit&state=active                                                                                                                                               | past`, GET `/orders/{id}` |
 | Payment  | POST `/payment/customer-session`, POST `/payment/orders/{orderId}/confirm`                                                                                                         |
+
+### Rate limits (measured)
+
+The API answers 429 `Too many requests. Please try again later.` with no `Retry-After` or rate-limit
+headers. Refused calls (400/404) count towards the limit. The tests wait out a 429, except on the forms, where
+the wait would be too long and the test is skipped instead (`utils/rateLimit.ts`).
+
+| Endpoint              | Limit                           | Measured   |
+| --------------------- | ------------------------------- | ---------- |
+| POST `/cart/checkout` | ~10 calls per customer, ~10 min | 2026-11-17 |
+| POST `/coupons/apply` | 10 calls per customer, ~1 min   | 2026-11-26 |
+| POST `/forms/*`       | 5 calls per caller per hour     | 2026-11-26 |
 
 ### Out of scope
 

@@ -7,7 +7,7 @@ A plain-English list of what the automated tests check. Updated whenever tests a
 | Area                              | UI tests | API tests |
 | --------------------------------- | -------: | --------: |
 | Sign in and sign out              |        8 |        17 |
-| Guest is asked to sign in         |        9 |         0 |
+| Guest sign-in and guest cart      |        8 |         0 |
 | Permissions                       |        0 |        15 |
 | Search                            |        5 |         3 |
 | Product list, sorting and paging  |        6 |        11 |
@@ -62,11 +62,25 @@ API (`tests/auth/auth.api.spec.ts`)
 
 UI (`tests/auth/auth.spec.ts`)
 
-- Opening the cart, checkout, profile, orders, addresses or wishlist page as a guest opens the sign-in dialog
-  (6 tests).
-- **Smoke.** Clicking Add to cart on a product as a guest opens the sign-in dialog, and the cart still shows
-  0 items.
-- Clicking the cart button or the wishlist button in the header as a guest opens the sign-in dialog (2 tests).
+- Opening an empty cart, the profile, orders, addresses or wishlist page as a guest opens the sign-in dialog
+  (5 tests).
+- Clicking the wishlist button in the header as a guest opens the sign-in dialog.
+
+## Guest cart
+
+UI (`tests/auth/auth.spec.ts`; also product, home, baskets and checkout specs)
+
+- **Smoke.** A guest adds a product to the cart without signing in; it is saved in the browser and survives a
+  reload.
+- The header cart button opens the cart drawer for a guest.
+- Product page and home cards: Add to cart / "+" work for a guest, the heart still asks them to sign in.
+- Basket "Buy" puts the basket in a guest's cart ("N items added to your cart").
+- Checkout: a guest with items must verify their phone before address and payment open; with an empty cart
+  there is no order form.
+- On sign-in the guest cart moves into the account (`tests/cart/guestCartMerge.serial.spec.ts`, customer
+  project): **smoke** — signing in from the header adds it to the cart the account already had and clears the
+  browser copy; a product in both carts ends up once with the quantities added (1 + 2 = 3); verifying the
+  phone at checkout keeps the cart and opens the delivery address.
 
 ## Permissions
 

@@ -69,15 +69,44 @@ export class ProductsApi extends ResourceApi {
     return this.get(`/${encodeURIComponent(id)}/similar`, { limit });
   }
 
+  /** The products the home page rows are built from: `featured:desc` or `price:asc`. */
+  async firstPage(sort: string, limit: number): Promise<Product[]> {
+    return (await json<Page<Product>>(this.list({ sort, limit }))).data;
+  }
+
+  /** Looks products up by their page slug, in parallel. */
+  async bySlugs(slugs: string[]): Promise<Map<string, Product>> {
+    const found = await Promise.all(slugs.map((slug) => json<Product>(this.getBySlug(slug))));
+    return new Map(found.map((product, index) => [slugs[index], product]));
+  }
+
   /**
    * Picks a product the tests can safely buy: in stock and without a promotion, so prices are predictable.
    * Tests cannot create products (no admin access), so they choose one at run time instead of
    * hard-coding a product that may be removed from the store.
    */
-  async findPurchasable(options: { searchTerm?: string; minPrice?: number } = {}): Promise<Product> {
-    const page = await json<Page<Product>>(this.list({ limit: 50, searchTerm: options.searchTerm }));
+  async findPurchasable(
+    options: {
+      searchTerm?: string;
+      minPrice?: number;
+      /** Only products whose price divides each of these amounts exactly, e.g. [50, 200]. */
+      priceDivides?: number[];
+    } = {},
+  ): Promise<Product> {
+    const divides = (price: number): boolean =>
+      (options.priceDivides ?? []).every((amount) => {
+        const ratio = amount / price;
+        return price > 0 && Math.abs(ratio - Math.round(ratio)) < 1e-9;
+      });
+    const page = await json<Page<Product>>(
+      this.list({ limit: options.priceDivides ? 200 : 50, searchTerm: options.searchTerm }),
+    );
     const found = page.data.find(
-      (product) => product.inStock && !product.promotion && product.price >= (options.minPrice ?? 0),
+      (product) =>
+        product.inStock &&
+        !product.promotion &&
+        product.price >= (options.minPrice ?? 0) &&
+        divides(product.price),
     );
     if (!found) {
       throw new Error(
