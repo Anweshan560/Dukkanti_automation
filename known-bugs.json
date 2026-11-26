@@ -19,6 +19,10 @@
     "issue": "",
     "description": "POST /cart/add, POST /cart/add/bulk and PATCH /cart/update put an out-of-stock product (inStock: false) in the cart (201/200) with no notice, although the product page disables its button with \"Out of stock\""
   },
+  "checkout-accepts-out-of-stock": {
+    "issue": "",
+    "description": "POST /cart/checkout places the order (201) when the cart holds an out-of-stock product (inStock: false) instead of refusing it; seen 2026-11-26 with \"Smart Chef Sucre Vanilline 7g\""
+  },
   "home-test-content-visible": {
     "issue": "",
     "description": "Test data is visible to shoppers on the home page: deal cards and footer show \"TEST ...\" deals and a \"foobar\" basket"

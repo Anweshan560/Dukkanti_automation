@@ -145,6 +145,7 @@ test.describe(
       'a cart holding an out-of-stock product cannot be checked out',
       { tag: '@stock' },
       async ({ api, customerApi, storeInfo }) => {
+        knownBug('checkout-accepts-out-of-stock');
         const product = await outOfStockProduct(api);
         await seedCheckoutableCart(api, customerApi, storeInfo.minOrderAmount);
         // Only possible while the cart still accepts out-of-stock products (known bug cart-accepts-out-of-stock).
