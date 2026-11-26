@@ -51,6 +51,11 @@ export async function absorbFormsRateLimit(page: Page): Promise<void> {
   await absorbRateLimit(page, `${env.apiUrl}/forms/**`);
 }
 
+/** POST /coupons/apply allows 10 calls per customer per minute (measured 2026-11-26). Same idea. */
+export async function absorbCouponRateLimit(page: Page): Promise<void> {
+  await absorbRateLimit(page, `${env.apiUrl}/coupons/apply`);
+}
+
 async function absorbRateLimit(page: Page, url: string): Promise<void> {
   await page.route(url, async (route) => {
     const started = Date.now();

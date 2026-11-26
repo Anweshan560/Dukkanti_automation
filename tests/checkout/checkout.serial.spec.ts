@@ -14,7 +14,7 @@ import { expect, test } from '../../fixtures/test';
 import { STRIPE_CARDS } from '../../pages/checkout/CheckoutPage';
 import { sameMoney } from '../../utils/dom';
 import { recordApiCalls, waitForApi } from '../../utils/network';
-import { absorbCheckoutRateLimit, CHECKOUT_TEST_TIMEOUT } from '../../utils/rateLimit';
+import { absorbCheckoutRateLimit, absorbCouponRateLimit, CHECKOUT_TEST_TIMEOUT } from '../../utils/rateLimit';
 import {
   expectedTotals,
   purchasableProducts,
@@ -154,6 +154,8 @@ test.describe('Checkout page before paying', { tag: ['@checkout'] }, () => {
     { tag: ['@negative', '@pricing'] },
     async ({ api, customerApi, checkoutPage, storeInfo, page }) => {
       const cart = await seedAboveMinimum(api, customerApi, storeInfo.minOrderAmount);
+      test.setTimeout(CHECKOUT_TEST_TIMEOUT);
+      await absorbCouponRateLimit(page);
       await checkoutPage.open();
       await checkoutPage.waitUntilReady();
       await expect(checkoutPage.applyCoupon, 'Apply should wait for a code').toBeDisabled();
@@ -176,6 +178,8 @@ test.describe('Checkout page before paying', { tag: ['@checkout'] }, () => {
       // Well above the free-delivery line, so the coupon changes only the subtotal and VAT.
       const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff + 100);
       const cart = await customerApi.cart.seed([{ productId: product.id, quantity }]);
+      test.setTimeout(CHECKOUT_TEST_TIMEOUT);
+      await absorbCouponRateLimit(page);
       await checkoutPage.open();
       await checkoutPage.waitUntilReady();
 
@@ -183,7 +187,10 @@ test.describe('Checkout page before paying', { tag: ['@checkout'] }, () => {
       const applied = waitForApi(page, 'POST', '/coupons/apply');
       await checkoutPage.applyCoupon.click();
       expect((await applied).ok(), `${code} was refused`).toBe(true);
-      const saving = round2(cart.subTotal * 0.1);
+      // The coupon's own percentage, so the test works with whichever test coupon is configured.
+      const coupon = (await customerApi.cart.current()).appliedCoupons.find((c) => c.code === code);
+      expect(coupon?.discountType).toBe('percentage');
+      const saving = round2((cart.subTotal * (coupon?.discountValue ?? 0)) / 100);
       const remove = checkoutPage.couponBox.getByRole('button', { name: `Remove coupon ${code}` });
       await expect(remove).toBeVisible();
       await expect(checkoutPage.couponBox).toContainText(saving.toFixed(2));

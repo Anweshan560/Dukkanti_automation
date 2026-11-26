@@ -235,14 +235,14 @@ test.describe('Checkout API: placing orders', { tag: ['@checkout', '@api'] }, ()
     'a card checkout with the test coupon only starts a payment, for the coupon price: no order yet, and the cart is kept',
     { tag: '@pricing' },
     async ({ api, customerApi, storeInfo }) => {
-      // Well above the minimum, so the 10% coupon cannot take the cart below it.
+      // Well above the minimum, so the test coupon cannot take the cart below it.
       const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff + 100);
       const [other] = (await purchasableProducts(api, 5)).filter((p) => p.id !== product.id);
       const full = await customerApi.cart.seed([
         { productId: product.id, quantity },
         { productId: other.id, quantity: 1 },
       ]);
-      const applied = await customerApi.coupons.apply(env.testData.couponCode);
+      const applied = await retryOn429(() => customerApi.coupons.apply(env.testData.couponCode));
       expect(applied.ok(), `${env.testData.couponCode} was refused: ${await errorMessage(applied)}`).toBe(
         true,
       );

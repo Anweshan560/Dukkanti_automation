@@ -8,6 +8,7 @@ import { buildApi, errorMessage, json, type Api, type Cart, type Product } from 
 import { expect, test } from '../../fixtures/test';
 import { sameMoney } from '../../utils/dom';
 import { knownBug } from '../../utils/knownBug';
+import { CHECKOUT_TEST_TIMEOUT, retryOn429 } from '../../utils/rateLimit';
 import { env } from '../../config/env';
 import {
   expectedTotals,
@@ -453,7 +454,11 @@ test.describe('Cart API: permissions', { tag: ['@cart', '@api', '@security'] }, 
 });
 
 test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
+  // POST /coupons/apply allows 10 calls per customer per minute, refused calls included (measured
+  // 2026-11-26). This block makes 15 in a few seconds, so every call waits out a 429 (about a minute).
+  test.describe.configure({ timeout: CHECKOUT_TEST_TIMEOUT });
   const couponCode = env.testData.couponCode;
+  const apply = (customerApi: Api, code: string) => retryOn429(() => customerApi.coupons.apply(code));
 
   test('the customer coupon list is a list', async ({ customerApi }) => {
     const response = await customerApi.coupons.list();
@@ -467,7 +472,7 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     async ({ api, customerApi }) => {
       const [product] = await purchasableProducts(api, 1);
       const before = await customerApi.cart.seed([{ productId: product.id, quantity: 2 }]);
-      const response = await customerApi.coupons.apply('NOPE-DOES-NOT-EXIST-1');
+      const response = await apply(customerApi, 'NOPE-DOES-NOT-EXIST-1');
       expect(response.status()).toBe(404);
       expect(await errorMessage(response)).toBe('Coupon not found');
       const after = await customerApi.cart.current();
@@ -481,7 +486,7 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     { tag: '@negative' },
     async ({ customerApi }) => {
       knownBug('coupon-error-shape');
-      const body = await (await customerApi.coupons.apply('NOPE-DOES-NOT-EXIST-2')).json();
+      const body = await (await apply(customerApi, 'NOPE-DOES-NOT-EXIST-2')).json();
       expect(body).toMatchObject({ statusCode: 404, error: 'Not Found' });
     },
   );
@@ -492,7 +497,7 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     ['a code that is not text', { code: 12345 }],
   ] as const) {
     test(`applying ${label} is refused with 400`, { tag: '@negative' }, async ({ customerApi }) => {
-      const response = await customerApi.coupons.raw('POST', '/apply', body);
+      const response = await retryOn429(() => customerApi.coupons.raw('POST', '/apply', body));
       expect(response.status()).toBe(400);
     });
   }
@@ -503,14 +508,14 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     async ({ api, customerApi }) => {
       const [product] = await purchasableProducts(api, 1);
       await customerApi.cart.seed([{ productId: product.id, quantity: 1 }]);
-      const response = await customerApi.coupons.apply(HOSTILE_STRINGS.sql);
+      const response = await apply(customerApi, HOSTILE_STRINGS.sql);
       expect(response.status()).toBe(404);
       expect(await errorMessage(response)).toBe('Coupon not found');
     },
   );
 
   test('a coupon cannot be applied to an empty cart', { tag: '@negative' }, async ({ customerApi }) => {
-    const response = await customerApi.coupons.apply('ANY-CODE');
+    const response = await apply(customerApi, 'ANY-CODE');
     expect(response.status()).toBe(400);
     expect(await errorMessage(response)).toBe('Cart is empty');
   });
@@ -536,12 +541,19 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
 
   /** Applies the test coupon and returns the cart; fails with the API's reason when it is refused. */
   async function applyTestCoupon(customerApi: Api): Promise<Cart> {
-    const applied = await customerApi.coupons.apply(couponCode);
+    const applied = await apply(customerApi, couponCode);
     expect(applied.ok(), `${couponCode} was refused: ${await errorMessage(applied)}`).toBe(true);
     return customerApi.cart.current();
   }
 
-  test(`${couponCode} takes 10% off the subtotal, VAT is charged on what is left, and removing it restores the total`, async ({
+  /** The share the applied test coupon takes off, e.g. 0.1 for 10%. Read from the cart, not assumed. */
+  function couponRate(cart: Cart): number {
+    const coupon = cart.appliedCoupons.find((c) => c.code === couponCode);
+    expect(coupon?.discountType, `${couponCode} is not a percentage coupon`).toBe('percentage');
+    return (coupon?.discountValue ?? 0) / 100;
+  }
+
+  test(`${couponCode} takes its percentage off the subtotal, VAT is charged on what is left, and removing it restores the total`, async ({
     api,
     customerApi,
     storeInfo,
@@ -553,8 +565,8 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
 
     expect(cart.appliedCoupons).toHaveLength(1);
     const [coupon] = cart.appliedCoupons;
-    expect(coupon).toMatchObject({ code: couponCode, discountType: 'percentage', discountValue: 10 });
-    const saving = round2(before.subTotal * 0.1);
+    expect(coupon.code).toBe(couponCode);
+    const saving = round2(before.subTotal * couponRate(cart));
     expect(sameMoney(coupon.amount, saving), `saving ${coupon.amount}, expected ${saving}`).toBe(true);
     // The saving is reported as promotionDiscount and already taken off the subtotal.
     expect(sameMoney(cart.promotionDiscount, saving)).toBe(true);
@@ -586,31 +598,33 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
   });
 
   test('the coupon saving follows the cart when products are added', async ({ api, customerApi }) => {
+    knownBug('coupon-saving-rounded-per-unit');
     const [first, second] = await purchasableProducts(api, 2);
     await customerApi.cart.seed([{ productId: first.id, quantity: 2 }]);
-    await applyTestCoupon(customerApi);
+    const rate = couponRate(await applyTestCoupon(customerApi));
     await customerApi.cart.add(second.id, 3);
     const cart = await customerApi.cart.current();
     const full = round2(first.price * 2 + second.price * 3);
     expect(cart.appliedCoupons, 'The coupon fell off when the cart changed').toHaveLength(1);
     expect(
-      sameMoney(cart.appliedCoupons[0].amount, round2(full * 0.1)),
+      sameMoney(cart.appliedCoupons[0].amount, round2(full * rate)),
       `saving ${cart.appliedCoupons[0].amount} on ${full}`,
     ).toBe(true);
-    expect(sameMoney(cart.subTotal, round2(full - round2(full * 0.1)))).toBe(true);
+    expect(sameMoney(cart.subTotal, round2(full - round2(full * rate)))).toBe(true);
   });
 
   // The free-delivery line and the minimum order are judged on the subtotal after the coupon (seen 2026-11-20).
-  // At exactly 200 the coupon saves 20 but brings the 20 delivery fee back: the shopper pays 1 less, not 21.
+  // At exactly the line, a 10% coupon saves 20 but brings the 20 delivery fee back: the shopper pays 1 less.
   test(
     'a coupon that takes the subtotal under the free-delivery line brings the delivery fee back',
     { tag: '@boundary' },
     async ({ api, customerApi, storeInfo }) => {
+      knownBug('coupon-saving-rounded-per-unit');
       const { product, quantity } = await quantityForExactly(api, storeInfo.deliveryCutOff);
       const before = await customerApi.cart.seed([{ productId: product.id, quantity }]);
       expect(before.deliveryFee).toBe(0);
       const cart = await applyTestCoupon(customerApi);
-      const want = expectedTotals(round2(storeInfo.deliveryCutOff * 0.9), storeInfo);
+      const want = expectedTotals(round2(storeInfo.deliveryCutOff * (1 - couponRate(cart))), storeInfo);
       expect(cart.deliveryFee).toBe(storeInfo.deliveryFee);
       expect(sameMoney(cart.total, want.total), `total ${cart.total}, expected ${want.total}`).toBe(true);
     },
@@ -620,11 +634,12 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     'a coupon that takes the subtotal under the minimum order blocks checkout until more is added',
     { tag: '@boundary' },
     async ({ api, customerApi, storeInfo }) => {
+      knownBug('coupon-saving-rounded-per-unit');
       const { product, quantity } = await quantityForExactly(api, storeInfo.minOrderAmount);
       const before = await customerApi.cart.seed([{ productId: product.id, quantity }]);
       expect(before.remainingToMinimum).toBe(0);
       const cart = await applyTestCoupon(customerApi);
-      const lowered = round2(storeInfo.minOrderAmount * 0.9);
+      const lowered = round2(storeInfo.minOrderAmount * (1 - couponRate(cart)));
       expect(sameMoney(cart.subTotal, lowered)).toBe(true);
       expect(
         sameMoney(cart.remainingToMinimum, round2(storeInfo.minOrderAmount - lowered)),
@@ -639,7 +654,7 @@ test.describe('Coupons API', { tag: ['@cart', '@api', '@pricing'] }, () => {
     async ({ api, customerApi }) => {
       const [product] = await purchasableProducts(api, 1);
       await customerApi.cart.seed([{ productId: product.id, quantity: 2 }]);
-      const response = await customerApi.coupons.apply(couponCode.toLowerCase());
+      const response = await apply(customerApi, couponCode.toLowerCase());
       expect(response.status()).toBe(404);
       expect((await customerApi.cart.current()).appliedCoupons).toEqual([]);
     },

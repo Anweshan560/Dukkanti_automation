@@ -79,6 +79,10 @@
     "issue": "",
     "description": "Coupon errors use { message, messageAr, status, error } instead of the API-wide { message, error, statusCode } shape"
   },
+  "coupon-saving-rounded-per-unit": {
+    "issue": "",
+    "description": "A percentage coupon is rounded per unit and then multiplied by the quantity, so the saving drifts from the percentage of the subtotal: AUTO123 (11%) on 80 x 2.50 saves 21.60 (0.275 -> 0.27 x 80), not 22.00, and the shopper pays 207.32 instead of 206.90 (seen 2026-11-26)"
+  },
   "cart-zero-quantity-line": {
     "issue": "",
     "description": "POST /cart/add with quantity 0 for a product not in the cart creates a cart line with quantity 0 (201) instead of refusing it or doing nothing"
