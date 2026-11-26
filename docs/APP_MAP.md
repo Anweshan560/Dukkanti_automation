@@ -139,6 +139,17 @@ Errors are JSON: `{ message, error, statusCode }`; validation errors return `mes
 | Orders   | GET `/orders?page&limit&state=active                                                                                                                                               | past`, GET `/orders/{id}` |
 | Payment  | POST `/payment/customer-session`, POST `/payment/orders/{orderId}/confirm`                                                                                                         |
 
+### Rate limits (measured)
+
+The API answers 429 `Too many requests. Please try again later.` with no `Retry-After` or rate-limit
+headers. Refused calls (400/404) count towards the limit. The tests wait out a 429 (`utils/rateLimit.ts`).
+
+| Endpoint              | Limit                           | Measured   |
+| --------------------- | ------------------------------- | ---------- |
+| POST `/cart/checkout` | ~10 calls per customer, ~10 min | 2026-11-17 |
+| POST `/coupons/apply` | 10 calls per customer, ~1 min   | 2026-11-26 |
+| POST `/forms/*`       | 5 calls per caller, over 45 min | 2026-11-26 |
+
 ### Out of scope
 
 `/admin/*`, `/suppliers`, `/margins`, `/keywords`, `/product-staging`, `/stock`, `/zoho/sync/*`,

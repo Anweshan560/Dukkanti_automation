@@ -1,19 +1,16 @@
 /**
  * Form endpoints (contact, business inquiry): required fields, bad values and hostile text.
  *
- * BUDGET: `/forms/*` allows about 10 calls per caller per 10+ minutes, refused calls included. This file
- * makes 5 calls (several rules checked per call, since the API names every broken field at once) and
- * forms.spec.ts at most 4, leaving one spare. Every call waits out a 429 instead of failing.
- * Valid submissions carry the `qa######` marker in the name.
+ * BUDGET: `/forms/*` allows 5 calls per caller per hour, refused calls included (measured 2026-11-26).
+ * This file makes 4 (several rules checked per call, since the API names every broken field at once) and
+ * forms.spec.ts 1 (the complete contact message, which also carries the hostile text). Do not add calls:
+ * a 429 skips the test, with the reason in the report. Valid submissions carry the `qa######` marker.
  */
 import { errorMessage } from '../../api';
 import { expect, test } from '../../fixtures/test';
-import { CHECKOUT_TEST_TIMEOUT, retryOn429 } from '../../utils/rateLimit';
+import { skipIfFormsRateLimited } from '../../utils/rateLimit';
 import { knownBug } from '../../utils/knownBug';
-import { HOSTILE_STRINGS } from '../../utils/shop';
-import { buildContactMessage, qaName, qaSuffix } from '../../utils/testData';
-
-test.describe.configure({ timeout: CHECKOUT_TEST_TIMEOUT });
+import { qaName, qaSuffix } from '../../utils/testData';
 
 const business = () => ({
   fullName: qaName('Test Person'),
@@ -29,7 +26,8 @@ test.describe('Contact form API', { tag: ['@content', '@forms', '@api'] }, () =>
     async ({ api }) => {
       // The page requires an email; the API does not. The phone number is optional in both.
       knownBug('contact-email-optional-in-api');
-      const response = await retryOn429(() => api.forms.contact({}));
+      const response = await api.forms.contact({});
+      skipIfFormsRateLimited(response);
       expect(response.status()).toBe(400);
       const message = await errorMessage(response);
       for (const field of ['fullName', 'email', 'message']) expect(message).toContain(field);
@@ -40,14 +38,13 @@ test.describe('Contact form API', { tag: ['@content', '@forms', '@api'] }, () =>
     'a bad email, a phone made of letters, a name that is not text and an empty message are all refused',
     { tag: '@negative' },
     async ({ api }) => {
-      const response = await retryOn429(() =>
-        api.forms.raw('POST', '/contact', {
-          fullName: 12345,
-          email: 'not-an-email',
-          phoneNumber: 'call me maybe',
-          message: '',
-        }),
-      );
+      const response = await api.forms.raw('POST', '/contact', {
+        fullName: 12345,
+        email: 'not-an-email',
+        phoneNumber: 'call me maybe',
+        message: '',
+      });
+      skipIfFormsRateLimited(response);
       expect(response.status()).toBe(400);
       const message = await errorMessage(response);
       expect.soft(message, 'email is not checked').toMatch(/email/i);
@@ -55,29 +52,12 @@ test.describe('Contact form API', { tag: ['@content', '@forms', '@api'] }, () =>
       expect.soft(message, 'the empty message is not refused').toMatch(/message/);
     },
   );
-
-  // Also the happy path: a complete message is accepted.
-  test(
-    'a complete message is accepted, also with text that looks like code or SQL and very long text',
-    { tag: '@security' },
-    async ({ api }) => {
-      const hostile = Object.values(HOSTILE_STRINGS).join(' | ');
-      const response = await retryOn429(() =>
-        api.forms.contact(
-          buildContactMessage({
-            fullName: `${HOSTILE_STRINGS.unicode} ${qaName('x')}`,
-            message: `Automated test. ${hostile} ${'x'.repeat(5_000)}`,
-          }),
-        ),
-      );
-      expect(response.status(), await errorMessage(response)).toBe(201);
-    },
-  );
 });
 
 test.describe('Business inquiry API', { tag: ['@content', '@forms', '@api'] }, () => {
   test('a complete inquiry is accepted', async ({ api }) => {
-    const response = await retryOn429(() => api.forms.business(business()));
+    const response = await api.forms.business(business());
+    skipIfFormsRateLimited(response);
     expect(response.status(), await errorMessage(response)).toBe(201);
   });
 
@@ -85,7 +65,8 @@ test.describe('Business inquiry API', { tag: ['@content', '@forms', '@api'] }, (
     'an empty inquiry is refused with 400 naming the required fields',
     { tag: '@negative' },
     async ({ api }) => {
-      const response = await retryOn429(() => api.forms.business({}));
+      const response = await api.forms.business({});
+      skipIfFormsRateLimited(response);
       expect(response.status()).toBe(400);
       const message = await errorMessage(response);
       for (const field of ['fullName', 'businessName', 'email']) expect(message).toContain(field);

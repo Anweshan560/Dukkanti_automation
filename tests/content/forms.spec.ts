@@ -2,16 +2,18 @@
  * Contact, business inquiry, sell and request forms as a guest: required fields, bad values, a valid
  * submission, and text that looks like code.
  *
- * BUDGET: see forms.api.spec.ts. Only three tests here send a form (one valid submission per form);
- * the rest check that the page stops a bad form before sending anything. Submissions carry the
- * `qa######` marker in the name.
+ * BUDGET: see forms.api.spec.ts (5 calls per hour). Only the complete contact message reaches the API.
+ * The inquiry test checks the request the page builds and answers it itself, the sell form posts to
+ * Make.com, and the rest check that the page stops a bad form before sending anything. Submissions
+ * carry the `qa######` marker in the name.
  */
 import { faker } from '@faker-js/faker';
 import type { Locator, Page, Request } from '@playwright/test';
+import { env } from '../../config/env';
 import { expect, test } from '../../fixtures/test';
 import { knownBug } from '../../utils/knownBug';
 import { recordApiCalls } from '../../utils/network';
-import { absorbFormsRateLimit, CHECKOUT_TEST_TIMEOUT } from '../../utils/rateLimit';
+import { skipIfFormsRateLimited } from '../../utils/rateLimit';
 import { HOSTILE_STRINGS } from '../../utils/shop';
 import { qaName, qaSuffix } from '../../utils/testData';
 
@@ -59,10 +61,6 @@ async function submitAndCount(page: Page, submit: Locator, path: RegExp): Promis
   return calls.calls.filter((c) => c.method === 'POST' && path.test(c.path)).length + webhookPosts;
 }
 
-test.beforeEach(async ({ page }) => {
-  await absorbFormsRateLimit(page);
-});
-
 test.describe('Contact form', { tag: ['@content', '@forms'] }, () => {
   const field = (page: Page, name: string) =>
     page.getByRole('main').getByRole('textbox', { name, exact: true });
@@ -108,18 +106,20 @@ test.describe('Contact form', { tag: ['@content', '@forms'] }, () => {
     await expectInvalid(field(page, 'Phone number'), 'Phone number');
   });
 
+  // Also checks that the API accepts text that looks like code or SQL, and very long text: one call does
+  // both, to stay inside the budget.
   test('a complete message is sent and the shopper is told so', { tag: '@smoke' }, async ({ page }) => {
-    test.setTimeout(CHECKOUT_TEST_TIMEOUT);
-    await field(page, 'Name').fill(qaName(faker.person.fullName()));
+    const hostile = Object.values(HOSTILE_STRINGS).join(' | ');
+    await field(page, 'Name').fill(`${HOSTILE_STRINGS.unicode} ${qaName(faker.person.fullName())}`);
     await field(page, 'Email').fill(`qa.${qaSuffix()}@example.com`);
     await field(page, 'Phone number').fill(`+97150${faker.string.numeric(7)}`);
-    await field(page, 'Message').fill(`Automated test, please ignore. ${HOSTILE_STRINGS.xss}`);
+    await field(page, 'Message').fill(`Automated test, please ignore. ${hostile} ${'x'.repeat(5_000)}`);
     const response = page.waitForResponse(
       (r) => r.url().endsWith('/forms/contact') && r.request().method() === 'POST',
-      { timeout: CHECKOUT_TEST_TIMEOUT },
     );
     await submit(page).click();
-    expect((await response).status()).toBe(201);
+    skipIfFormsRateLimited(await response);
+    expect((await response).status(), await (await response).text()).toBe(201);
     await expect(success(page), 'No confirmation after sending the contact form').toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   });
@@ -155,20 +155,25 @@ test.describe('Business inquiry form', { tag: ['@content', '@forms'] }, () => {
     },
   );
 
-  test('a complete inquiry is sent and confirmed', async ({ page }) => {
+  // The request the page builds is checked against the fields POST /forms/business requires (see
+  // forms.api.spec.ts) and answered here, so this test spends none of the 5 calls per hour.
+  test('a complete inquiry sends the fields the API expects and is confirmed', async ({ page }) => {
     knownBug('business-form-field-mismatch');
-    test.setTimeout(CHECKOUT_TEST_TIMEOUT);
+    let sent: Record<string, unknown> | undefined;
+    await page.route(`${env.apiUrl}/forms/**`, async (route) => {
+      sent = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 201, json: { message: 'ok' } });
+    });
     await field(page, 'Company name').fill(qaName('Test Trading'));
     await field(page, 'Contact name').fill(qaName(faker.person.fullName()));
     await field(page, 'Email').fill(`qa.${qaSuffix()}@example.com`);
     await field(page, 'Phone number').fill(`+97150${faker.string.numeric(7)}`);
     await field(page, 'Message').fill('Automated test, please ignore.');
-    const response = page.waitForResponse(
-      (r) => /\/forms\//.test(r.url()) && r.request().method() === 'POST',
-      { timeout: CHECKOUT_TEST_TIMEOUT },
-    );
     await submit(page).click();
-    expect((await response).status(), 'The website form and the API disagree on the field names').toBe(201);
+    await expect.poll(() => sent, { message: 'The page sent no inquiry' }).toBeTruthy();
+    expect(Object.keys(sent ?? {}), 'The website form and the API disagree on the field names').toEqual(
+      expect.arrayContaining(['fullName', 'businessName', 'email', 'phoneNumber']),
+    );
     await expect(success(page)).toBeVisible();
   });
 });

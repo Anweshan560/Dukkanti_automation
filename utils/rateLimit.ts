@@ -44,11 +44,15 @@ export async function absorbCheckoutRateLimit(page: Page): Promise<void> {
 }
 
 /**
- * The form endpoints (`/forms/*`) share a limit of about 10 calls per caller per 10+ minutes. Same idea:
- * wait out a 429 instead of failing.
+ * The form endpoints (`/forms/*`) share a limit of 5 calls per caller per hour (measured 2026-11-26),
+ * far longer than a test can wait. The suite sends exactly 5 (see forms.api.spec.ts), so a 429 means
+ * another run used them within the hour: the test is skipped with that reason instead of failing.
  */
-export async function absorbFormsRateLimit(page: Page): Promise<void> {
-  await absorbRateLimit(page, `${env.apiUrl}/forms/**`);
+export function skipIfFormsRateLimited(response: { status(): number }): void {
+  test.skip(
+    response.status() === 429,
+    'Rate limited: /forms/* allows 5 calls per caller per hour and another run used them. Run again in an hour.',
+  );
 }
 
 /** POST /coupons/apply allows 10 calls per customer per minute (measured 2026-11-26). Same idea. */
